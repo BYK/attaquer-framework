@@ -1,0 +1,23 @@
+.thermal {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  cursor: pointer;
+}
+.thermal-item {
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 0 0.3rem 0 0.2rem;
+}
+.thermal-item:hover {
+  animation: hoverbutton 0.1s ease forwards;
+}
+.thermal-item i {
+  font-size: 13px;
+}
+.thermal-item .i-fan-img {
+  height: 13px;
+  width: 13px;
+  margin-right: 5px;
+}
