@@ -1,0 +1,31 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Package widget pack
+        run: tar czf attaquer-framework.tar.gz dist zpack.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: attaquer-framework
+          path: attaquer-framework.tar.gz
+          retention-days: 90
