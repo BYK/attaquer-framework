@@ -40,11 +40,11 @@
 button {
   display: flex;
   align-items: center;
-  text-shadow: 0 0 2px black;
+  text-shadow: var(--text-shadow);
   margin: 0 1px 0 0;
   padding: 0 3px 0 3px;
   height: 22px;
-  color: #fff;
+  color: var(--text-solid);
   border: none;
   background: none;
   border-radius: 4px;

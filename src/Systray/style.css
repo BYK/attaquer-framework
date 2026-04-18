@@ -18,10 +18,10 @@
 }
 
 .systray-toggle:hover {
-  background-color: #aeaeae50;
+  background-color: var(--hover-bg);
   box-shadow:
-    0 -1px 1px #9e9e9e44,
-    0 1px 1px #24242455;
+    0 -1px 1px var(--hover-shadow-top),
+    0 1px 1px var(--hover-shadow-bottom);
 }
 
 .systray-toggle:active .content {
@@ -81,10 +81,10 @@
 }
 
 .systray-icon-container:hover {
-  background-color: #aeaeae50;
+  background-color: var(--hover-bg);
   box-shadow:
-    0 -1px 1px #9e9e9e44,
-    0 1px 1px #24242455;
+    0 -1px 1px var(--hover-shadow-top),
+    0 1px 1px var(--hover-shadow-bottom);
 }
 
 .systray-icon {

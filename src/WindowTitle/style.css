@@ -1,5 +1,5 @@
 .current-window {
-  color: #fff;
+  color: var(--text-solid);
   white-space: nowrap;
   overflow: hidden;
   max-width: 700px;

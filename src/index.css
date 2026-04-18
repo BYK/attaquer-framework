@@ -18,6 +18,49 @@
   --blue: #05e7e5;
   --night-blue: #016ff6;
   --windows-color: #3a86ff;
+
+  /* Theme-aware tokens */
+  --bg: #1c1c1ccc;
+  --text: rgb(255 255 255 / 90%);
+  --text-solid: #fff;
+  --icon-color: rgb(115 130 175 / 95%);
+  --hover-bg: #aeaeae50;
+  --hover-shadow-top: #9e9e9e44;
+  --hover-shadow-bottom: #24242455;
+  --text-shadow: 0 0 2px black;
+}
+
+@media (prefers-color-scheme: light) {
+  /* Invert monochrome PNG icons designed for dark backgrounds.
+     Excludes app-icon (full-color extracted icons) and systray-icon. */
+  img:not(.app-icon):not(.systray-icon) {
+    filter: invert(1) hue-rotate(180deg);
+  }
+
+  :root {
+    --green: #2e8b00;
+    --b-yellow: #9a8600;
+    --yellow: #8a7d00;
+    --b-orange: #c46700;
+    --orange: #b55800;
+    --b-red: #cc1a1a;
+    --red: #a01515;
+    --pink: #8a30d0;
+    --purple: #6600aa;
+    --blue: #0099a0;
+    --night-blue: #0050c0;
+    --windows-color: #2060d0;
+    --b-yellow-weather: #7a6800;
+
+    --bg: #e4e4e4cc;
+    --text: rgb(30 30 30 / 90%);
+    --text-solid: #222;
+    --icon-color: rgb(60 70 110 / 90%);
+    --hover-bg: #50505030;
+    --hover-shadow-top: #9e9e9e22;
+    --hover-shadow-bottom: #ffffff55;
+    --text-shadow: none;
+  }
 }
 
 @font-face {
@@ -118,25 +161,25 @@
   from {
   }
   to {
-    background: #aeaeae50;
+    background: var(--hover-bg);
     box-shadow:
-      0 -1px 1px #9e9e9e44,
-      0 1px 1px #24242455;
+      0 -1px 1px var(--hover-shadow-top),
+      0 1px 1px var(--hover-shadow-bottom);
   }
 }
 @keyframes unhoverbutton {
   from {
-    background: #aeaeae50;
+    background: var(--hover-bg);
     box-shadow:
-      0 -1px 1px #9e9e9e44,
-      0 1px 1px #24242455;
+      0 -1px 1px var(--hover-shadow-top),
+      0 1px 1px var(--hover-shadow-bottom);
   }
   to {
   }
 }
 
 body {
-  color: rgb(255 255 255 / 90%);
+  color: var(--text);
   font-family: "CaskaydiaMonoNerdFont Locally", ui-monospace, monospace;
   font-size: 13px;
   overflow: hidden;
@@ -149,11 +192,11 @@ body {
 #root {
   height: 100%;
   align-items: center;
-  background: #1c1c1ccc;
+  background: var(--bg);
 }
 
 i {
-  color: rgb(115 130 175 / 95%);
+  color: var(--icon-color);
   margin-right: 5px;
 }
 
@@ -165,11 +208,11 @@ span {
 button {
   display: flex;
   align-items: center;
-  text-shadow: 0 0 2px black;
+  text-shadow: var(--text-shadow);
   /* margin: 0 1px 0 0; */
   padding: 0 3px 0 3px;
   height: 90%;
-  color: #fff;
+  color: var(--text-solid);
   border: none;
   background: none;
   border-radius: 4px;
@@ -199,7 +242,7 @@ img {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   align-items: center;
-  color: #fff;
+  color: var(--text-solid);
   height: 100%;
   /* height: 32px; */
   /* padding: 0 0 6px 0; */
