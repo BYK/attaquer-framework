@@ -3,12 +3,15 @@ name: Build
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -29,3 +32,10 @@ jobs:
           name: attaquer-framework
           path: attaquer-framework.tar.gz
           retention-days: 90
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: attaquer-framework.tar.gz
+          generate_release_notes: true

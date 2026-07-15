@@ -109,16 +109,18 @@ const ThermalStatus: Component = () => {
   const [fanPct, setFanPct] = createSignal<number | null>(null);
   let calibrationPoints: [number, number][] | null = null;
 
-  const fetchCalibration = async () => {
+  const fetchCalibration = async (): Promise<boolean> => {
     try {
       const res = await fetch(`${BASE_URL}/config`, { cache: "no-store" });
-      if (!res.ok) return;
+      if (!res.ok) return false;
       const cfg: Config = await res.json();
       const pts = cfg.fan?.calibration?.points;
       if (pts && pts.length > 1) {
         calibrationPoints = pts;
+        return true;
       }
     } catch { /* offline */ }
+    return false;
   };
 
   const pollThermal = async () => {
@@ -130,10 +132,13 @@ const ThermalStatus: Component = () => {
       if (!latest) return;
       const t = maxTemp(latest.temps);
       if (t !== null) setTemp(t);
-      const currentRpm = latest.rpms?.[0] ?? 0;
-      setRpm(currentRpm);
-      if (calibrationPoints) {
-        setFanPct(rpmToPercent(currentRpm, calibrationPoints));
+      const currentRpm =
+        Array.isArray(latest.rpms) && latest.rpms.length > 0 ? latest.rpms[0] : null;
+      if (currentRpm !== null) {
+        setRpm(currentRpm);
+        if (calibrationPoints) {
+          setFanPct(rpmToPercent(currentRpm, calibrationPoints));
+        }
       }
     } catch { /* offline */ }
   };
@@ -146,12 +151,27 @@ const ThermalStatus: Component = () => {
   };
 
   let interval: ReturnType<typeof setInterval>;
+  let calInterval: ReturnType<typeof setInterval> | undefined;
   onMount(() => {
-    fetchCalibration();
+    // Retry calibration until it loads — FC's service may not be ready at boot,
+    // and it's only fetched once, so without retry a slow start leaves the
+    // widget permanently stuck on the raw-RPM fallback.
+    const tryCalibration = async () => {
+      if (await fetchCalibration()) {
+        if (calInterval) clearInterval(calInterval);
+        calInterval = undefined;
+      }
+    };
+    tryCalibration();
+    calInterval = setInterval(tryCalibration, THERMAL_POLL_MS);
+
     pollThermal();
     interval = setInterval(pollThermal, THERMAL_POLL_MS);
   });
-  onCleanup(() => clearInterval(interval));
+  onCleanup(() => {
+    clearInterval(interval);
+    if (calInterval) clearInterval(calInterval);
+  });
 
   return (
     <Show when={temp() !== null || fanPct() !== null || rpm() !== null}>

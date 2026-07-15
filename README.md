@@ -31,20 +31,58 @@ Unknown apps in the taskbar automatically get their icon extracted from the runn
 
 ## Framework Control setup
 
-The widget polls Framework Control's local API. You need to allow CORS from Zebar's webview origin.
+> [!IMPORTANT]
+> **The widget silently hides the CPU temp / fan indicator if CORS is not
+> configured.** Framework Control only answers API requests from origins listed
+> in `FRAMEWORK_CONTROL_ALLOWED_ORIGINS`. If Zebar's origin isn't allowed, every
+> request is blocked and the indicator simply doesn't render — no error in the
+> bar. If the indicator is missing, this is almost always the cause.
+
+The widget polls Framework Control's local API from Zebar's webview, whose
+default origin is **`http://127.0.0.1:6124`**. You must allow this origin:
 
 1. Find the WinSW config file at `C:\Program Files\FrameworkControl\FrameworkControlService.xml`
-2. Edit the `FRAMEWORK_CONTROL_ALLOWED_ORIGINS` env tag to include Zebar's origin:
+2. Edit (or add) the `FRAMEWORK_CONTROL_ALLOWED_ORIGINS` env tag to include Zebar's origin:
    ```xml
-   <env name="FRAMEWORK_CONTROL_ALLOWED_ORIGINS" value="...,http://127.0.0.1:6124" />
+   <env name="FRAMEWORK_CONTROL_ALLOWED_ORIGINS" value="http://127.0.0.1:6124" />
    ```
-3. Restart the service: `Restart-Service FrameworkControlService`
+   If other origins are already listed, append yours comma-separated (no spaces).
+3. Restart the service (admin PowerShell): `Restart-Service FrameworkControlService`
+
+The indicator appears within ~2s once CORS is allowed — no widget reload needed.
+
+**Diagnosing a missing indicator:** right-click the widget → **Inspect** → the
+**Console** tab. A message like
+`Access to fetch at 'http://127.0.0.1:30912/api/config' from origin
+'http://127.0.0.1:6124' has been blocked by CORS policy` confirms the origin
+isn't allowed. The origin shown in that error is exactly the value to whitelist
+(useful if Zebar's port ever differs from `6124`).
 
 **Note:** The port (`30912` by default) is baked into the Framework Control binary. Check `FrameworkControlService.xml` for the actual port, and update `BASE_URL` in `src/ThermalStatus/ThermalStatus.tsx` if different.
 
 Fan speed % requires running the fan calibration wizard in Framework Control's web UI first. Without calibration, raw RPM is displayed instead.
 
 ## Install
+
+### Option A — Prebuilt release (no build tools needed)
+
+Each version tag publishes a prebuilt `attaquer-framework.tar.gz` (containing
+`dist/` + `zpack.json`) as a [GitHub Release](https://github.com/BYK/attaquer-framework/releases).
+Download and extract it into Zebar's widget pack directory:
+
+```bash
+cd ~/.glzr/zebar
+curl -L -o attaquer-framework.tar.gz \
+  https://github.com/BYK/attaquer-framework/releases/latest/download/attaquer-framework.tar.gz
+mkdir -p attaquer-framework
+tar xzf attaquer-framework.tar.gz -C attaquer-framework
+```
+
+On Windows (PowerShell), download the `.tar.gz` from the Releases page and
+extract it into `%USERPROFILE%\.glzr\zebar\attaquer-framework` (`tar` ships with
+Windows 10/11: `tar xzf attaquer-framework.tar.gz`).
+
+### Option B — Build from source
 
 ```bash
 # Clone into Zebar's widget pack directory
