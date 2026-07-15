@@ -1,6 +1,6 @@
 {
   "name": "attaquer-framework",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Zebar widget pack for Framework laptops with Framework Control integration.",
   "scripts": {
     "build": "vite build",
