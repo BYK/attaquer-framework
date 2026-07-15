@@ -1,7 +1,7 @@
 {
-  "name": "solidjs-ts",
-  "version": "0.0.0",
-  "description": "",
+  "name": "attaquer-framework",
+  "version": "1.0.0",
+  "description": "A Zebar widget pack for Framework laptops with Framework Control integration.",
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch"
