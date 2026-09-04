@@ -44,7 +44,11 @@ public sealed partial class MainWindow : Window
     {
         Title = "Attaquer Taskbar";
         Closed += OnWindowClosed;
-        var taskbarRoot = new Grid { Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.Transparent) };
+        var taskbarRoot = new Grid
+        {
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                Windows.UI.Color.FromArgb(0, 0, 0, 0))
+        };
         Content = taskbarRoot;
         DiagnosticLog.Write("Main window visual tree initialized without XAML.");
 

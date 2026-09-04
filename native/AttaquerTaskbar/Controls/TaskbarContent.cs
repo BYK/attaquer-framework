@@ -4,7 +4,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
-using Windows.UI.Text;
 
 namespace AttaquerTaskbar.Controls;
 
@@ -130,7 +129,7 @@ public sealed class TaskbarContent : UserControl
         _layoutRoot = new Grid
         {
             Padding = new Thickness(4, 0, 4, 0),
-            Background = new SolidColorBrush(Colors.Transparent),
+            Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
             ColumnSpacing = 4
         };
         _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -303,7 +302,7 @@ public sealed class TaskbarContent : UserControl
     private void OnOpenFrameworkControlClick(object sender, RoutedEventArgs e) =>
         FrameworkControlService.OpenDashboard();
 
-    private void OnContextMenuOpened(object sender, object e) =>
+    private void OnContextMenuOpened(object? sender, object e) =>
         _runAtStartupMenuItem.IsChecked = StartupService.IsEnabled();
 
     private void OnRunAtStartupClick(object sender, RoutedEventArgs e) =>
@@ -336,8 +335,8 @@ public sealed class TaskbarContent : UserControl
         Padding = new Thickness(0),
         HorizontalContentAlignment = HorizontalAlignment.Center,
         VerticalContentAlignment = VerticalAlignment.Center,
-        Background = new SolidColorBrush(Colors.Transparent),
-        BorderBrush = new SolidColorBrush(Colors.Transparent),
+        Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
+        BorderBrush = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
         BorderThickness = new Thickness(0),
         CornerRadius = new CornerRadius(4)
     };
@@ -364,7 +363,7 @@ public sealed class TaskbarContent : UserControl
     {
         Text = text,
         FontSize = 11,
-        FontWeight = FontWeights.SemiBold,
+        FontWeight = new Windows.UI.Text.FontWeight { Weight = 600 },
         VerticalAlignment = VerticalAlignment.Center
     };
 
