@@ -26,36 +26,63 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Create test signing certificate
+        shell: pwsh
+        run: |
+          $certificate = New-SelfSignedCertificate `
+            -Type Custom `
+            -Subject "CN=BYK" `
+            -KeyUsage DigitalSignature `
+            -KeyExportPolicy Exportable `
+            -FriendlyName "Attaquer Taskbar CI" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3")
+          $password = ConvertTo-SecureString "attaquer-ci-package" -AsPlainText -Force
+          Export-PfxCertificate `
+            -Cert $certificate `
+            -FilePath native/AttaquerTaskbar/AttaquerTaskbar_TemporaryKey.pfx `
+            -Password $password | Out-Null
+          Export-Certificate `
+            -Cert $certificate `
+            -FilePath native/AttaquerTaskbar/AttaquerTaskbar.cer | Out-Null
+
       - name: Restore
         run: dotnet restore native/AttaquerTaskbar/AttaquerTaskbar.csproj -r win-x64
 
       - name: Build
         run: dotnet build native/AttaquerTaskbar/AttaquerTaskbar.csproj -c Release -r win-x64 --no-restore
 
-      - name: Publish self-contained app
+      - name: Build signed MSIX
         run: >-
           dotnet publish native/AttaquerTaskbar/AttaquerTaskbar.csproj
           -c Release
           -r win-x64
           --self-contained true
           --no-restore
-          -o native-publish
+          -p:Platform=x64
+          -p:GenerateAppxPackageOnBuild=true
+          -p:UapAppxPackageBuildMode=SideLoadOnly
+          -p:AppxBundle=Never
+          -p:PackageCertificateKeyFile=AttaquerTaskbar_TemporaryKey.pfx
+          -p:PackageCertificatePassword=attaquer-ci-package
 
-      - name: Verify executable
+      - name: Assemble installer
         shell: pwsh
         run: |
-          if (-not (Test-Path native-publish/AttaquerTaskbar.exe)) {
-            throw "AttaquerTaskbar.exe was not produced"
-          }
-
-      - name: Package
-        shell: pwsh
-        run: Compress-Archive -Path native-publish/* -DestinationPath attaquer-taskbar-win-x64.zip
+          $msix = Get-ChildItem native/AttaquerTaskbar/AppPackages -Recurse -Filter *.msix |
+            Select-Object -First 1
+          if ($null -eq $msix) { throw "AttaquerTaskbar.msix was not produced" }
+          New-Item -ItemType Directory -Path native-package | Out-Null
+          Copy-Item $msix.FullName native-package/AttaquerTaskbar.msix
+          Copy-Item native/AttaquerTaskbar/AttaquerTaskbar.cer native-package/
+          Copy-Item native/install.ps1 native-package/
+          Copy-Item native/install.cmd native-package/
+          Compress-Archive -Path native-package/* -DestinationPath attaquer-taskbar-win-x64.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: attaquer-taskbar-win-x64
-          path: native-publish/
+          path: native-package/
           retention-days: 90
 
       - name: Publish release asset
