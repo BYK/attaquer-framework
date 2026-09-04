@@ -26,8 +26,9 @@ so no CORS allow-list entry is required.
 1. Open the latest successful **Native taskbar companion** workflow run.
 2. Download the `attaquer-taskbar-win-x64` artifact.
 3. Extract it anywhere and run `install.cmd`.
-4. The installer trusts the build's ephemeral signing certificate for the
-   current user, installs the MSIX and launches Attaquer Taskbar.
+4. Accept the UAC prompt. The installer trusts the build's ephemeral signing
+   certificate in the machine's **Trusted People** store, installs the MSIX and
+   launches Attaquer Taskbar.
 5. Right-click the widget and enable **Run at startup**.
 
 ## Compact taskbar behavior
