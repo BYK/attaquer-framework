@@ -350,18 +350,74 @@ public sealed class TaskbarContent : UserControl
             _ => _extremeBrush
         };
 
-    private static Button TransparentButton() => new()
+    private static Button TransparentButton()
     {
-        MinWidth = 0,
-        MinHeight = 0,
-        Padding = new Thickness(0),
-        HorizontalContentAlignment = HorizontalAlignment.Center,
-        VerticalContentAlignment = VerticalAlignment.Center,
-        Background = Brushes.Transparent,
-        BorderBrush = Brushes.Transparent,
-        BorderThickness = new Thickness(0),
-        Focusable = false
-    };
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.SetValue(
+            Border.BackgroundProperty,
+            new TemplateBindingExtension(Control.BackgroundProperty));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
+
+        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        presenter.SetValue(
+            ContentPresenter.ContentProperty,
+            new TemplateBindingExtension(ContentControl.ContentProperty));
+        presenter.SetValue(
+            ContentPresenter.HorizontalAlignmentProperty,
+            HorizontalAlignment.Center);
+        presenter.SetValue(
+            ContentPresenter.VerticalAlignmentProperty,
+            VerticalAlignment.Center);
+        border.AppendChild(presenter);
+
+        var template = new ControlTemplate(typeof(Button)) { VisualTree = border };
+        template.Triggers.Add(new Trigger
+        {
+            Property = IsMouseOverProperty,
+            Value = true,
+            Setters =
+            {
+                new Setter(
+                    Control.BackgroundProperty,
+                    new SolidColorBrush(Color.FromArgb(0x28, 0x80, 0x80, 0x80)))
+            }
+        });
+        template.Triggers.Add(new Trigger
+        {
+            Property = Button.IsPressedProperty,
+            Value = true,
+            Setters =
+            {
+                new Setter(
+                    Control.BackgroundProperty,
+                    new SolidColorBrush(Color.FromArgb(0x48, 0x80, 0x80, 0x80)))
+            }
+        });
+        template.Triggers.Add(new Trigger
+        {
+            Property = IsEnabledProperty,
+            Value = false,
+            Setters =
+            {
+                new Setter(OpacityProperty, 0.35),
+                new Setter(Control.BackgroundProperty, Brushes.Transparent)
+            }
+        });
+
+        return new Button
+        {
+            MinWidth = 0,
+            MinHeight = 0,
+            Padding = new Thickness(0),
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Focusable = false,
+            Template = template
+        };
+    }
 
     private static Button InlineButton(UIElement content, string tooltip, RoutedEventHandler handler)
     {
