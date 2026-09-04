@@ -4,6 +4,16 @@ A [Zebar](https://github.com/glzr-io/zebar) widget pack for [Framework laptops](
 
 Built with SolidJS + TypeScript + Vite.
 
+## Native Windows 11 taskbar companion
+
+Want to keep the Microsoft taskbar instead of replacing it with Zebar? The
+repository now also contains **Attaquer Taskbar**, a native WinUI 3 companion
+with the same Framework Control temperature/fan data plus system-wide
+now-playing information and controls.
+
+It adapts automatically to both the standard and new compact taskbar heights.
+See [`native/README.md`](native/README.md) for installation and build details.
+
 ## What's different from attaquer?
 
 ### Framework Control integration

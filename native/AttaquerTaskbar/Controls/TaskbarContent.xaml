@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="AttaquerTaskbar.Controls.TaskbarContent"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="48"
+    d:DesignWidth="500"
+    Loaded="OnLoaded"
+    SizeChanged="OnSizeChanged"
+    Unloaded="OnUnloaded"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Style x:Key="InlineButtonStyle" TargetType="Button">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+        <Style x:Key="StatusButtonStyle" TargetType="Button">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid
+        x:Name="LayoutRoot"
+        Padding="4,0"
+        Background="Transparent"
+        ColumnSpacing="4">
+        <Grid.ContextFlyout>
+            <MenuFlyout Opened="OnContextMenuOpened">
+                <MenuFlyoutItem Click="OnOpenFrameworkControlClick" Text="Open Framework Control" />
+                <ToggleMenuFlyoutItem
+                    x:Name="RunAtStartupMenuItem"
+                    Click="OnRunAtStartupClick"
+                    Text="Run at startup" />
+                <MenuFlyoutSeparator />
+                <MenuFlyoutItem Click="OnExitClick" Text="Exit" />
+            </MenuFlyout>
+        </Grid.ContextFlyout>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="1" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Button
+            x:Name="ThermalButton"
+            Grid.Column="0"
+            Click="OnOpenFrameworkControlClick"
+            Style="{StaticResource StatusButtonStyle}">
+            <StackPanel
+                x:Name="ThermalPanel"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="5">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <TextBlock
+                        x:Name="CpuLabel"
+                        VerticalAlignment="Center"
+                        FontSize="9"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="CPU" />
+                    <TextBlock
+                        x:Name="TemperatureText"
+                        VerticalAlignment="Center"
+                        FontSize="11"
+                        FontWeight="SemiBold"
+                        Text="--°" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <TextBlock
+                        x:Name="FanLabel"
+                        VerticalAlignment="Center"
+                        FontSize="9"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="FAN" />
+                    <TextBlock
+                        x:Name="FanText"
+                        VerticalAlignment="Center"
+                        FontSize="11"
+                        FontWeight="SemiBold"
+                        Text="--" />
+                </StackPanel>
+            </StackPanel>
+        </Button>
+
+        <Border
+            x:Name="MediaSeparator"
+            Grid.Column="1"
+            Margin="0,7"
+            Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+        <Grid
+            x:Name="MediaGrid"
+            Grid.Column="2"
+            ColumnSpacing="5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Border
+                x:Name="ArtworkHost"
+                Grid.Column="0"
+                Width="32"
+                Height="32"
+                VerticalAlignment="Center"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4">
+                <Grid>
+                    <FontIcon
+                        x:Name="ArtworkPlaceholder"
+                        FontSize="16"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Glyph="&#xE93C;" />
+                    <Image
+                        x:Name="ArtworkImage"
+                        Stretch="UniformToFill"
+                        Visibility="Collapsed" />
+                </Grid>
+            </Border>
+
+            <Grid
+                Grid.Column="1"
+                MinWidth="20"
+                VerticalAlignment="Center">
+                <StackPanel x:Name="NormalMetadata" Spacing="0">
+                    <TextBlock
+                        x:Name="TitleText"
+                        FontSize="12"
+                        Text="Nothing playing"
+                        TextLineBounds="Tight"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        x:Name="DescriptionText"
+                        FontSize="10"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        TextLineBounds="Tight"
+                        TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <TextBlock
+                    x:Name="CompactMetadata"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    Text="Nothing playing"
+                    TextLineBounds="Tight"
+                    TextTrimming="CharacterEllipsis"
+                    Visibility="Collapsed" />
+            </Grid>
+
+            <StackPanel
+                x:Name="TransportPanel"
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="1">
+                <Button
+                    x:Name="PreviousButton"
+                    Click="OnPreviousClick"
+                    Style="{StaticResource InlineButtonStyle}"
+                    ToolTipService.ToolTip="Previous">
+                    <FontIcon x:Name="PreviousIcon" FontSize="15" Glyph="&#xE892;" />
+                </Button>
+                <Button
+                    x:Name="PlayPauseButton"
+                    Click="OnPlayPauseClick"
+                    Style="{StaticResource InlineButtonStyle}"
+                    ToolTipService.ToolTip="Play or pause">
+                    <Grid>
+                        <FontIcon
+                            x:Name="PlayIcon"
+                            FontSize="15"
+                            Glyph="&#xE768;" />
+                        <FontIcon
+                            x:Name="PauseIcon"
+                            FontSize="15"
+                            Glyph="&#xE769;"
+                            Visibility="Collapsed" />
+                    </Grid>
+                </Button>
+                <Button
+                    x:Name="NextButton"
+                    Click="OnNextClick"
+                    Style="{StaticResource InlineButtonStyle}"
+                    ToolTipService.ToolTip="Next">
+                    <FontIcon x:Name="NextIcon" FontSize="15" Glyph="&#xE893;" />
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>
