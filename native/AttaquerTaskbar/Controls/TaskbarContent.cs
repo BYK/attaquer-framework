@@ -1,17 +1,18 @@
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using AttaquerTaskbar.Models;
 using AttaquerTaskbar.Services;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
-using Windows.UI;
+using Microsoft.Win32;
 
 namespace AttaquerTaskbar.Controls;
 
 public sealed class TaskbarContent : UserControl
 {
-    // Windows' compact taskbar is approximately 32 DIPs high; the standard
-    // taskbar is 48 DIPs. Leave room for intermediate DPI/preview variants.
     private const double CompactHeightThreshold = 40;
+    private static readonly FontFamily SymbolFont = new("Segoe Fluent Icons");
 
     private readonly SolidColorBrush _coolBrush = Brush(0x30, 0x8C, 0x4A);
     private readonly SolidColorBrush _warmBrush = Brush(0xC0, 0x6C, 0x00);
@@ -24,6 +25,7 @@ public sealed class TaskbarContent : UserControl
     private readonly Grid _layoutRoot;
     private readonly Button _thermalButton;
     private readonly StackPanel _thermalPanel;
+    private readonly StackPanel _fanPair;
     private readonly TextBlock _cpuLabel;
     private readonly TextBlock _temperatureText;
     private readonly TextBlock _fanLabel;
@@ -31,20 +33,19 @@ public sealed class TaskbarContent : UserControl
     private readonly Border _mediaSeparator;
     private readonly Grid _mediaGrid;
     private readonly Border _artworkHost;
-    private readonly FontIcon _artworkPlaceholder;
+    private readonly TextBlock _artworkPlaceholder;
     private readonly Image _artworkImage;
     private readonly StackPanel _normalMetadata;
     private readonly TextBlock _titleText;
     private readonly TextBlock _descriptionText;
     private readonly TextBlock _compactMetadata;
     private readonly Button _previousButton;
-    private readonly FontIcon _previousIcon;
+    private readonly TextBlock _previousIcon;
     private readonly Button _playPauseButton;
-    private readonly FontIcon _playIcon;
-    private readonly FontIcon _pauseIcon;
+    private readonly TextBlock _playPauseIcon;
     private readonly Button _nextButton;
-    private readonly FontIcon _nextIcon;
-    private readonly ToggleMenuFlyoutItem _runAtStartupMenuItem;
+    private readonly TextBlock _nextIcon;
+    private readonly MenuItem _runAtStartupMenuItem;
 
     private MediaSnapshot _mediaSnapshot = MediaSnapshot.Empty;
     private bool _isCompact;
@@ -59,17 +60,24 @@ public sealed class TaskbarContent : UserControl
         _temperatureText = StatusText("--°");
         _fanLabel = SecondaryText("FAN", 9);
         _fanText = StatusText("--");
-        _thermalPanel = HorizontalPanel(5);
+        _thermalPanel = HorizontalPanel();
         _thermalPanel.Children.Add(Pair(_cpuLabel, _temperatureText));
-        _thermalPanel.Children.Add(Pair(_fanLabel, _fanText));
+        _fanPair = Pair(_fanLabel, _fanText);
+        _fanPair.Margin = new Thickness(5, 0, 0, 0);
+        _thermalPanel.Children.Add(_fanPair);
         _thermalButton = TransparentButton();
         _thermalButton.Padding = new Thickness(4, 0, 4, 0);
-        _thermalButton.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         _thermalButton.Content = _thermalPanel;
         _thermalButton.Click += OnOpenFrameworkControlClick;
 
-        _artworkPlaceholder = new FontIcon { FontSize = 16, Glyph = "\uE93C", Opacity = 0.65 };
-        _artworkImage = new Image { Stretch = Stretch.UniformToFill, Visibility = Visibility.Collapsed };
+        _artworkPlaceholder = Symbol("\uE93C", 16);
+        _artworkPlaceholder.Opacity = 0.65;
+        _artworkImage = new Image
+        {
+            Stretch = Stretch.UniformToFill,
+            Visibility = Visibility.Collapsed,
+            SnapsToDevicePixels = true
+        };
         var artworkGrid = new Grid();
         artworkGrid.Children.Add(_artworkPlaceholder);
         artworkGrid.Children.Add(_artworkImage);
@@ -77,16 +85,18 @@ public sealed class TaskbarContent : UserControl
         {
             Width = 32,
             Height = 32,
+            Margin = new Thickness(0, 0, 5, 0),
             VerticalAlignment = VerticalAlignment.Center,
             Background = new SolidColorBrush(Color.FromArgb(0x18, 0x80, 0x80, 0x80)),
             CornerRadius = new CornerRadius(4),
+            ClipToBounds = true,
             Child = artworkGrid
         };
 
         _titleText = MetadataText("Nothing playing", 12);
         _descriptionText = MetadataText(string.Empty, 10);
         _descriptionText.Opacity = 0.65;
-        _normalMetadata = new StackPanel { Spacing = 0 };
+        _normalMetadata = new StackPanel();
         _normalMetadata.Children.Add(_titleText);
         _normalMetadata.Children.Add(_descriptionText);
         _compactMetadata = MetadataText("Nothing playing", 11);
@@ -96,23 +106,20 @@ public sealed class TaskbarContent : UserControl
         metadataGrid.Children.Add(_normalMetadata);
         metadataGrid.Children.Add(_compactMetadata);
 
-        _previousIcon = new FontIcon { FontSize = 15, Glyph = "\uE892" };
+        _previousIcon = Symbol("\uE892", 15);
         _previousButton = InlineButton(_previousIcon, "Previous", OnPreviousClick);
-        _playIcon = new FontIcon { FontSize = 15, Glyph = "\uE768" };
-        _pauseIcon = new FontIcon { FontSize = 15, Glyph = "\uE769", Visibility = Visibility.Collapsed };
-        var playIcons = new Grid();
-        playIcons.Children.Add(_playIcon);
-        playIcons.Children.Add(_pauseIcon);
-        _playPauseButton = InlineButton(playIcons, "Play or pause", OnPlayPauseClick);
-        _nextIcon = new FontIcon { FontSize = 15, Glyph = "\uE893" };
+        _playPauseIcon = Symbol("\uE768", 15);
+        _playPauseButton = InlineButton(_playPauseIcon, "Play or pause", OnPlayPauseClick);
+        _nextIcon = Symbol("\uE893", 15);
         _nextButton = InlineButton(_nextIcon, "Next", OnNextClick);
-        var transportPanel = HorizontalPanel(1);
-        transportPanel.VerticalAlignment = VerticalAlignment.Center;
+        var transportPanel = HorizontalPanel();
+        transportPanel.Margin = new Thickness(5, 0, 0, 0);
         transportPanel.Children.Add(_previousButton);
+        _playPauseButton.Margin = new Thickness(1, 0, 1, 0);
         transportPanel.Children.Add(_playPauseButton);
         transportPanel.Children.Add(_nextButton);
 
-        _mediaGrid = new Grid { ColumnSpacing = 5 };
+        _mediaGrid = new Grid();
         _mediaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _mediaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         _mediaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -122,36 +129,36 @@ public sealed class TaskbarContent : UserControl
 
         _mediaSeparator = new Border
         {
-            Margin = new Thickness(0, 7, 0, 7),
+            Width = 1,
+            Margin = new Thickness(4, 7, 4, 7),
             Background = new SolidColorBrush(Color.FromArgb(0x38, 0x80, 0x80, 0x80))
         };
 
         _layoutRoot = new Grid
         {
-            Padding = new Thickness(4, 0, 4, 0),
-            Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
-            ColumnSpacing = 4
+            Margin = new Thickness(4, 0, 4, 0),
+            Background = Brushes.Transparent
         };
         _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
+        _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         AddToColumn(_layoutRoot, _thermalButton, 0);
         AddToColumn(_layoutRoot, _mediaSeparator, 1);
         AddToColumn(_layoutRoot, _mediaGrid, 2);
 
-        var contextMenu = new MenuFlyout();
+        var contextMenu = new ContextMenu();
         contextMenu.Opened += OnContextMenuOpened;
-        var openFrameworkControl = new MenuFlyoutItem { Text = "Open Framework Control" };
+        var openFrameworkControl = new MenuItem { Header = "Open Framework Control" };
         openFrameworkControl.Click += OnOpenFrameworkControlClick;
-        _runAtStartupMenuItem = new ToggleMenuFlyoutItem { Text = "Run at startup" };
+        _runAtStartupMenuItem = new MenuItem { Header = "Run at startup", IsCheckable = true };
         _runAtStartupMenuItem.Click += OnRunAtStartupClick;
-        var exit = new MenuFlyoutItem { Text = "Exit" };
+        var exit = new MenuItem { Header = "Exit" };
         exit.Click += OnExitClick;
         contextMenu.Items.Add(openFrameworkControl);
         contextMenu.Items.Add(_runAtStartupMenuItem);
-        contextMenu.Items.Add(new MenuFlyoutSeparator());
+        contextMenu.Items.Add(new Separator());
         contextMenu.Items.Add(exit);
-        _layoutRoot.ContextFlyout = contextMenu;
+        _layoutRoot.ContextMenu = contextMenu;
 
         Content = _layoutRoot;
         Loaded += OnLoaded;
@@ -166,6 +173,8 @@ public sealed class TaskbarContent : UserControl
 
         _mediaService.StateChanged += ApplyMediaSnapshot;
         _thermalService.StateChanged += ApplyThermalSnapshot;
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+        ApplySystemTheme();
         ApplyMediaSnapshot(_mediaService.CurrentSnapshot);
         ApplyThermalSnapshot(_thermalService.CurrentSnapshot);
         ApplyDensity(ActualHeight < CompactHeightThreshold);
@@ -177,6 +186,22 @@ public sealed class TaskbarContent : UserControl
         _isLoaded = false;
         _mediaService.StateChanged -= ApplyMediaSnapshot;
         _thermalService.StateChanged -= ApplyThermalSnapshot;
+        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+    }
+
+    private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e) =>
+        Dispatcher.BeginInvoke(ApplySystemTheme);
+
+    private void ApplySystemTheme()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(
+            @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+        var light = key?.GetValue("SystemUsesLightTheme") is int value && value != 0;
+        Foreground = light ? Brush(0x20, 0x20, 0x20) : Brushes.White;
+        _thermalButton.Foreground = Foreground;
+        _previousButton.Foreground = Foreground;
+        _playPauseButton.Foreground = Foreground;
+        _nextButton.Foreground = Foreground;
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e) =>
@@ -185,17 +210,18 @@ public sealed class TaskbarContent : UserControl
     private void ApplyDensity(bool compact)
     {
         _isCompact = compact;
-        _layoutRoot.Padding = compact ? new Thickness(2, 0, 2, 0) : new Thickness(4, 0, 4, 0);
-        _layoutRoot.ColumnSpacing = compact ? 2 : 4;
-        _mediaGrid.ColumnSpacing = compact ? 3 : 5;
-        _mediaSeparator.Margin = compact ? new Thickness(0, 5, 0, 5) : new Thickness(0, 7, 0, 7);
+        _layoutRoot.Margin = compact ? new Thickness(2, 0, 2, 0) : new Thickness(4, 0, 4, 0);
+        _mediaSeparator.Margin = compact
+            ? new Thickness(2, 5, 2, 5)
+            : new Thickness(4, 7, 4, 7);
         _thermalButton.Padding = compact ? new Thickness(2, 0, 2, 0) : new Thickness(4, 0, 4, 0);
-        _thermalPanel.Spacing = compact ? 3 : 5;
+        _fanPair.Margin = new Thickness(compact ? 3 : 5, 0, 0, 0);
         _cpuLabel.FontSize = _fanLabel.FontSize = compact ? 8 : 9;
         _temperatureText.FontSize = _fanText.FontSize = compact ? 10 : 11;
 
         var artworkSize = compact ? 24 : 32;
         _artworkHost.Width = _artworkHost.Height = artworkSize;
+        _artworkHost.Margin = new Thickness(0, 0, compact ? 3 : 5, 0);
         _artworkHost.CornerRadius = new CornerRadius(compact ? 3 : 4);
         _artworkPlaceholder.FontSize = compact ? 13 : 16;
         _normalMetadata.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
@@ -203,16 +229,14 @@ public sealed class TaskbarContent : UserControl
 
         var buttonSize = compact ? 24 : 28;
         SetButtonDensity(_previousButton, _previousIcon, buttonSize, compact ? 13 : 15);
-        SetButtonDensity(_playPauseButton, _playIcon, buttonSize, compact ? 13 : 15);
-        _pauseIcon.FontSize = compact ? 13 : 15;
+        SetButtonDensity(_playPauseButton, _playPauseIcon, buttonSize, compact ? 13 : 15);
         SetButtonDensity(_nextButton, _nextIcon, buttonSize, compact ? 13 : 15);
         ApplyMediaSnapshot(_mediaSnapshot);
     }
 
-    private static void SetButtonDensity(Button button, FontIcon icon, double size, double iconSize)
+    private static void SetButtonDensity(Button button, TextBlock icon, double size, double iconSize)
     {
         button.Width = button.Height = size;
-        button.CornerRadius = new CornerRadius(size <= 24 ? 3 : 4);
         icon.FontSize = iconSize;
     }
 
@@ -238,7 +262,7 @@ public sealed class TaskbarContent : UserControl
             _compactMetadata.Text = BuildCompactText(snapshot.Title, snapshot.Artist);
         }
 
-        _artworkImage.Source = snapshot.Thumbnail;
+        _artworkImage.Source = CreateBitmap(snapshot.Thumbnail);
         _artworkImage.Visibility = snapshot.HasSession && snapshot.Thumbnail is not null
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -248,8 +272,7 @@ public sealed class TaskbarContent : UserControl
         _previousButton.IsEnabled = snapshot.CanSkipPrevious;
         _nextButton.IsEnabled = snapshot.CanSkipNext;
         _playPauseButton.IsEnabled = snapshot.CanPlayPause;
-        _playIcon.Visibility = snapshot.IsPlaying ? Visibility.Collapsed : Visibility.Visible;
-        _pauseIcon.Visibility = snapshot.IsPlaying ? Visibility.Visible : Visibility.Collapsed;
+        _playPauseIcon.Text = snapshot.IsPlaying ? "\uE769" : "\uE768";
 
         var hideSecondaryControls = ActualWidth > 0 && ActualWidth < (_isCompact ? 330 : 380);
         _previousButton.Visibility = hideSecondaryControls ? Visibility.Collapsed : Visibility.Visible;
@@ -263,7 +286,7 @@ public sealed class TaskbarContent : UserControl
             _temperatureText.Text = "--°";
             _fanText.Text = "--";
             _temperatureText.Foreground = _fanText.Foreground = _unavailableBrush;
-            ToolTipService.SetToolTip(_thermalButton, "Framework Control is unavailable at 127.0.0.1:30912");
+            _thermalButton.ToolTip = "Framework Control is unavailable at 127.0.0.1:30912";
             return;
         }
 
@@ -285,9 +308,8 @@ public sealed class TaskbarContent : UserControl
             : snapshot.FanRpm is int rawRpm
                 ? $"Fan: {rawRpm} RPM (run Framework Control calibration for %)"
                 : "Fan: unavailable";
-        ToolTipService.SetToolTip(
-            _thermalButton,
-            $"CPU: {_temperatureText.Text}\n{fanDetail}\nClick to open Framework Control");
+        _thermalButton.ToolTip =
+            $"CPU: {_temperatureText.Text}\n{fanDetail}\nClick to open Framework Control";
     }
 
     private async void OnPreviousClick(object sender, RoutedEventArgs e) =>
@@ -299,10 +321,10 @@ public sealed class TaskbarContent : UserControl
     private async void OnNextClick(object sender, RoutedEventArgs e) =>
         await _mediaService.SkipNextAsync();
 
-    private void OnOpenFrameworkControlClick(object sender, RoutedEventArgs e) =>
+    private static void OnOpenFrameworkControlClick(object sender, RoutedEventArgs e) =>
         FrameworkControlService.OpenDashboard();
 
-    private void OnContextMenuOpened(object? sender, object e) =>
+    private void OnContextMenuOpened(object sender, RoutedEventArgs e) =>
         _runAtStartupMenuItem.IsChecked = StartupService.IsEnabled();
 
     private void OnRunAtStartupClick(object sender, RoutedEventArgs e) =>
@@ -335,10 +357,10 @@ public sealed class TaskbarContent : UserControl
         Padding = new Thickness(0),
         HorizontalContentAlignment = HorizontalAlignment.Center,
         VerticalContentAlignment = VerticalAlignment.Center,
-        Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
-        BorderBrush = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),
+        Background = Brushes.Transparent,
+        BorderBrush = Brushes.Transparent,
         BorderThickness = new Thickness(0),
-        CornerRadius = new CornerRadius(4)
+        Focusable = false
     };
 
     private static Button InlineButton(UIElement content, string tooltip, RoutedEventHandler handler)
@@ -346,10 +368,19 @@ public sealed class TaskbarContent : UserControl
         var button = TransparentButton();
         button.Width = button.Height = 28;
         button.Content = content;
+        button.ToolTip = tooltip;
         button.Click += handler;
-        ToolTipService.SetToolTip(button, tooltip);
         return button;
     }
+
+    private static TextBlock Symbol(string glyph, double fontSize) => new()
+    {
+        Text = glyph,
+        FontFamily = SymbolFont,
+        FontSize = fontSize,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center
+    };
 
     private static TextBlock SecondaryText(string text, double fontSize) => new()
     {
@@ -363,7 +394,7 @@ public sealed class TaskbarContent : UserControl
     {
         Text = text,
         FontSize = 11,
-        FontWeight = new Windows.UI.Text.FontWeight { Weight = 600 },
+        FontWeight = FontWeights.SemiBold,
         VerticalAlignment = VerticalAlignment.Center
     };
 
@@ -371,20 +402,20 @@ public sealed class TaskbarContent : UserControl
     {
         Text = text,
         FontSize = fontSize,
-        TextLineBounds = TextLineBounds.Tight,
-        TextTrimming = TextTrimming.CharacterEllipsis
-    };
-
-    private static StackPanel HorizontalPanel(double spacing) => new()
-    {
-        Orientation = Orientation.Horizontal,
-        Spacing = spacing,
+        TextTrimming = TextTrimming.CharacterEllipsis,
         VerticalAlignment = VerticalAlignment.Center
     };
 
-    private static StackPanel Pair(UIElement first, UIElement second)
+    private static StackPanel HorizontalPanel() => new()
     {
-        var panel = HorizontalPanel(2);
+        Orientation = Orientation.Horizontal,
+        VerticalAlignment = VerticalAlignment.Center
+    };
+
+    private static StackPanel Pair(FrameworkElement first, FrameworkElement second)
+    {
+        var panel = HorizontalPanel();
+        second.SetValue(MarginProperty, new Thickness(2, 0, 0, 0));
         panel.Children.Add(first);
         panel.Children.Add(second);
         return panel;
@@ -394,6 +425,27 @@ public sealed class TaskbarContent : UserControl
     {
         Grid.SetColumn(element, column);
         grid.Children.Add(element);
+    }
+
+    private static BitmapImage? CreateBitmap(byte[]? bytes)
+    {
+        if (bytes is null || bytes.Length == 0) return null;
+
+        try
+        {
+            using var stream = new MemoryStream(bytes, writable: false);
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.StreamSource = stream;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static string BuildDescription(string artist, string album)
@@ -412,5 +464,5 @@ public sealed class TaskbarContent : UserControl
     }
 
     private static SolidColorBrush Brush(byte red, byte green, byte blue) =>
-        new(Color.FromArgb(0xFF, red, green, blue));
+        new(Color.FromRgb(red, green, blue));
 }

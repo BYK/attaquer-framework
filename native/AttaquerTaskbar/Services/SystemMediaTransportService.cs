@@ -1,7 +1,6 @@
 using AttaquerTaskbar.Diagnostics;
 using AttaquerTaskbar.Models;
-using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml.Media.Imaging;
+using System.Windows.Threading;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
 
@@ -13,16 +12,16 @@ namespace AttaquerTaskbar.Services;
 /// </summary>
 public sealed class SystemMediaTransportService : IDisposable
 {
-    private readonly DispatcherQueue _dispatcherQueue;
+    private readonly Dispatcher _dispatcher;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private GlobalSystemMediaTransportControlsSessionManager? _sessionManager;
     private GlobalSystemMediaTransportControlsSession? _currentSession;
-    private BitmapImage? _cachedThumbnail;
+    private byte[]? _cachedThumbnail;
     private int _started;
     private bool _isDisposed;
 
-    public SystemMediaTransportService(DispatcherQueue dispatcherQueue) =>
-        _dispatcherQueue = dispatcherQueue;
+    public SystemMediaTransportService(Dispatcher dispatcher) =>
+        _dispatcher = dispatcher;
 
     public MediaSnapshot CurrentSnapshot { get; private set; } = MediaSnapshot.Empty;
 
@@ -84,7 +83,7 @@ public sealed class SystemMediaTransportService : IDisposable
     private void OnSessionsChanged(
         GlobalSystemMediaTransportControlsSessionManager sender,
         SessionsChangedEventArgs args) =>
-        _dispatcherQueue.TryEnqueue(() =>
+        _dispatcher.BeginInvoke(() =>
         {
             UpdateCurrentSession();
             _ = RefreshSnapshotAsync();
@@ -93,7 +92,7 @@ public sealed class SystemMediaTransportService : IDisposable
     private void OnCurrentSessionChanged(
         GlobalSystemMediaTransportControlsSessionManager sender,
         CurrentSessionChangedEventArgs args) =>
-        _dispatcherQueue.TryEnqueue(() =>
+        _dispatcher.BeginInvoke(() =>
         {
             UpdateCurrentSession();
             _ = RefreshSnapshotAsync();
@@ -104,13 +103,13 @@ public sealed class SystemMediaTransportService : IDisposable
         MediaPropertiesChangedEventArgs args)
     {
         _cachedThumbnail = null;
-        _dispatcherQueue.TryEnqueue(() => _ = RefreshSnapshotAsync());
+        _dispatcher.BeginInvoke(() => _ = RefreshSnapshotAsync());
     }
 
     private void OnPlaybackInfoChanged(
         GlobalSystemMediaTransportControlsSession sender,
         PlaybackInfoChangedEventArgs args) =>
-        _dispatcherQueue.TryEnqueue(() => _ = RefreshSnapshotAsync());
+        _dispatcher.BeginInvoke(() => _ = RefreshSnapshotAsync());
 
     private void UpdateCurrentSession()
     {
@@ -185,15 +184,19 @@ public sealed class SystemMediaTransportService : IDisposable
     {
         if (_isDisposed) return;
         CurrentSnapshot = snapshot;
-        _dispatcherQueue.TryEnqueue(() => StateChanged?.Invoke(snapshot));
+        _dispatcher.BeginInvoke(() => StateChanged?.Invoke(snapshot));
     }
 
-    private static async Task<BitmapImage?> LoadThumbnailAsync(
+    private static async Task<byte[]?> LoadThumbnailAsync(
         IRandomAccessStreamReference thumbnailReference)
     {
         using var stream = await thumbnailReference.OpenReadAsync();
-        var bitmap = new BitmapImage();
-        await bitmap.SetSourceAsync(stream);
-        return bitmap;
+        if (stream.Size == 0 || stream.Size > int.MaxValue) return null;
+
+        using var reader = new DataReader(stream.GetInputStreamAt(0));
+        await reader.LoadAsync((uint)stream.Size);
+        var bytes = new byte[(int)stream.Size];
+        reader.ReadBytes(bytes);
+        return bytes;
     }
 }

@@ -1,47 +1,21 @@
-using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Interop;
 using AttaquerTaskbar.Diagnostics;
 using Deskband11Lib.Core;
-using Deskband11Lib.WinUI;
-using Microsoft.UI.Xaml;
-using WinUIEx;
+using Deskband11Lib.Wpf;
 
 namespace AttaquerTaskbar;
 
-public sealed partial class MainWindow : Window
+public partial class MainWindow : Window
 {
-    private const uint WindowEndSessionMessage = 0x0016;
-    private readonly WindowSubclassProcedure _windowSubclassProcedure;
-
     internal TaskbarContentHost TaskbarContentHost { get; }
-    public bool IsAlive => this.IsWindowAlive();
 
-    private delegate nint WindowSubclassProcedure(
-        nint windowHandle,
-        uint message,
-        nint wParam,
-        nint lParam,
-        nuint subclassIdentifier,
-        nuint referenceData);
-
-    [LibraryImport("comctl32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetWindowSubclass(
-        nint windowHandle,
-        WindowSubclassProcedure procedure,
-        nuint subclassIdentifier,
-        nuint referenceData);
-
-    [LibraryImport("comctl32.dll")]
-    private static partial nint DefSubclassProc(
-        nint windowHandle,
-        uint message,
-        nint wParam,
-        nint lParam);
+    public bool IsAlive => TaskbarWindowHelper.IsWindowAlive(new WindowInteropHelper(this).Handle);
 
     public MainWindow()
     {
         InitializeComponent();
-        DiagnosticLog.Write("Main window compiled XAML initialized.");
+        DiagnosticLog.Write("WPF taskbar content initialized.");
 
         TaskbarContentHost = new TaskbarContentHost(this, (FrameworkElement)Content, new()
         {
@@ -52,28 +26,14 @@ public sealed partial class MainWindow : Window
             AnimateLayoutChanges = false,
             LayoutRefreshInterval = TimeSpan.FromMilliseconds(250)
         });
-        DiagnosticLog.Write("BarPlay-compatible Deskband11Lib.WinUI host created.");
-
-        _windowSubclassProcedure = OnWindowSubclassProcedure;
-        if (!SetWindowSubclass(this.GetWindowHandle(), _windowSubclassProcedure, 1, 0))
-            DiagnosticLog.Write($"SetWindowSubclass failed with Win32 error {Marshal.GetLastPInvokeError()}.");
-        else
-            DiagnosticLog.Write("Window subclass installed.");
+        DiagnosticLog.Write("Deskband11Lib.Wpf host created (500 x 48 preferred DIPs, automatic placement).");
     }
 
     public Task PrepareTaskbarContentAsync() => TaskbarContentHost.AttachWhenLayoutReadyAsync();
 
-    private void OnWindowClosed(object sender, WindowEventArgs e) => TaskbarContentHost.Dispose();
-
-    private nint OnWindowSubclassProcedure(
-        nint windowHandle,
-        uint message,
-        nint wParam,
-        nint lParam,
-        nuint subclassIdentifier,
-        nuint referenceData)
+    protected override void OnClosed(EventArgs e)
     {
-        if (message == WindowEndSessionMessage && wParam != 0) Environment.Exit(0);
-        return DefSubclassProc(windowHandle, message, wParam, lParam);
+        TaskbarContentHost.Dispose();
+        base.OnClosed(e);
     }
 }

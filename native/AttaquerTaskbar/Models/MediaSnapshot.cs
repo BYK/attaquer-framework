@@ -1,5 +1,3 @@
-using Microsoft.UI.Xaml.Media;
-
 namespace AttaquerTaskbar.Models;
 
 public sealed record MediaSnapshot(
@@ -11,7 +9,7 @@ public sealed record MediaSnapshot(
     bool CanSkipPrevious,
     bool CanSkipNext,
     bool CanPlayPause,
-    ImageSource? Thumbnail)
+    byte[]? Thumbnail)
 {
     public static MediaSnapshot Empty { get; } = new(
         string.Empty,

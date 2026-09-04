@@ -8,5 +8,5 @@ Taskbar hosting is provided by
 [Deskband11Lib](https://github.com/airtaxi/Deskband11Lib), copyright Howon Lee,
 under the MIT License.
 
-The native application also uses Microsoft Windows App SDK and WinUI packages
-under their respective licenses. See the NuGet package metadata for details.
+The native application also uses Microsoft's .NET and WPF runtime packages
+under their respective licenses. See the package metadata for details.

@@ -6,7 +6,7 @@ A native Windows 11 taskbar companion for Framework laptops. It combines:
 - system-wide now-playing metadata and previous/play/next controls
 - automatic adaptation to both the standard and new compact taskbar layouts
 
-It keeps the Microsoft taskbar and hosts a WinUI 3 surface inside it using
+It keeps the Microsoft taskbar and hosts a WPF surface inside it using
 [Deskband11Lib](https://github.com/airtaxi/Deskband11Lib). The media integration
 is derived from [BarPlay](https://github.com/airtaxi/BarPlay).
 
@@ -54,9 +54,9 @@ dotnet publish native/AttaquerTaskbar/AttaquerTaskbar.csproj `
   -o native-publish
 ```
 
-The build uses NativeAOT and bundles the Windows App SDK runtime inside a signed
-MSIX. Package identity is required by the Windows APIs used by WinUI and global
-media controls.
+The build is a self-contained .NET desktop app inside a signed MSIX. It uses WPF
+instead of WinUI so it also works on Insider builds where WinUI's optional
+limited-access feature activation is unavailable.
 
 ## Controls
 
@@ -86,12 +86,11 @@ Get-Content "$env:LOCALAPPDATA\AttaquerTaskbar\attaquer-taskbar.log" -Tail 100
 - `Another instance is already registered` means a previous invisible copy is
   running. End it in Task Manager, or run
   `Stop-Process -Name AttaquerTaskbar -Force`, then start the app once.
-- A final `Waiting for Deskband11Lib...` line followed by
-  `Windows.ApplicationModel.LimitedAccessFeatures` means an old unpackaged
-  build was launched. Install the current MSIX artifact with `install.cmd`.
+- A `Windows.ApplicationModel.LimitedAccessFeatures` error identifies an older
+  WinUI build. Install the current WPF-based MSIX artifact with `install.cmd`.
 - A final `Waiting for Deskband11Lib...` line with no later message means the
   process cannot measure or attach to this Windows taskbar layout.
-- A `WinUI launch failed` or `Unhandled ... exception` line contains the startup
+- A `WPF launch failed` or `Unhandled ... exception` line contains the startup
   failure and stack trace. Include those lines plus the Windows build from
   `winver` in a bug report.
 

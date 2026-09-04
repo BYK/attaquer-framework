@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Windows.Threading;
 using AttaquerTaskbar.Models;
-using Microsoft.UI.Dispatching;
 
 namespace AttaquerTaskbar.Services;
 
@@ -13,7 +13,7 @@ public sealed class FrameworkControlService : IDisposable
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan CalibrationRefreshInterval = TimeSpan.FromMinutes(5);
 
-    private readonly DispatcherQueue _dispatcherQueue;
+    private readonly Dispatcher _dispatcher;
     private readonly HttpClient _httpClient = new()
     {
         BaseAddress = new Uri("http://127.0.0.1:30912/api/"),
@@ -26,8 +26,8 @@ public sealed class FrameworkControlService : IDisposable
     private int _started;
     private bool _isDisposed;
 
-    public FrameworkControlService(DispatcherQueue dispatcherQueue) =>
-        _dispatcherQueue = dispatcherQueue;
+    public FrameworkControlService(Dispatcher dispatcher) =>
+        _dispatcher = dispatcher;
 
     public ThermalSnapshot CurrentSnapshot { get; private set; } = ThermalSnapshot.Unavailable;
 
@@ -145,7 +145,7 @@ public sealed class FrameworkControlService : IDisposable
     {
         if (_isDisposed || snapshot == CurrentSnapshot) return;
         CurrentSnapshot = snapshot;
-        _dispatcherQueue.TryEnqueue(() => StateChanged?.Invoke(snapshot));
+        _dispatcher.BeginInvoke(() => StateChanged?.Invoke(snapshot));
     }
 }
 

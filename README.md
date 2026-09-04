@@ -7,7 +7,7 @@ Built with SolidJS + TypeScript + Vite.
 ## Native Windows 11 taskbar companion
 
 Want to keep the Microsoft taskbar instead of replacing it with Zebar? The
-repository now also contains **Attaquer Taskbar**, a native WinUI 3 companion
+repository now also contains **Attaquer Taskbar**, a native WPF companion
 with the same Framework Control temperature/fan data plus system-wide
 now-playing information and controls.
 

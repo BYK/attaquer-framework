@@ -1,51 +1,70 @@
+using System.Windows;
+using System.Windows.Threading;
 using AttaquerTaskbar.Diagnostics;
 using AttaquerTaskbar.Services;
-using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml;
 
 namespace AttaquerTaskbar;
 
 public partial class App : Application
 {
     private static MainWindow? s_mainWindow;
+    private Mutex? _singleInstanceMutex;
+    private bool _ownsSingleInstanceMutex;
 
     public static SystemMediaTransportService MediaService { get; private set; } = null!;
     public static FrameworkControlService ThermalService { get; private set; } = null!;
 
-    public App()
+    protected override async void OnStartup(StartupEventArgs e)
     {
-        DiagnosticLog.Write("Constructing the WinUI application object.");
-        UnhandledException += OnUnhandledException;
-        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
-        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
-        InitializeComponent();
-        DiagnosticLog.Write("WinUI application resources initialized.");
-    }
+        DiagnosticLog.Initialize();
+        DiagnosticLog.Write("Runtime host: WPF.");
 
-    protected override async void OnLaunched(LaunchActivatedEventArgs args)
-    {
         try
         {
-            DiagnosticLog.Write("WinUI launch started.");
-            var dispatcher = DispatcherQueue.GetForCurrentThread()
-                ?? throw new InvalidOperationException("The UI dispatcher is unavailable.");
+            DiagnosticLog.Write("Initializing WinRT COM wrappers.");
+            WinRT.ComWrappersSupport.InitializeComWrappers();
 
-            MediaService = new SystemMediaTransportService(dispatcher);
-            ThermalService = new FrameworkControlService(dispatcher);
+            _singleInstanceMutex = new Mutex(
+                initiallyOwned: true,
+                name: @"Local\AttaquerTaskbarSingleInstance",
+                createdNew: out var isFirstInstance);
+            _ownsSingleInstanceMutex = isFirstInstance;
+            if (!isFirstInstance)
+            {
+                DiagnosticLog.Write("Another instance is already running; exiting.");
+                Shutdown();
+                return;
+            }
+
+            DispatcherUnhandledException += OnDispatcherUnhandledException;
+            AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+            TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+            base.OnStartup(e);
+
+            MediaService = new SystemMediaTransportService(Dispatcher);
+            ThermalService = new FrameworkControlService(Dispatcher);
             ThermalService.Start();
             DiagnosticLog.Write("Framework Control service started; media initialization deferred.");
 
-            // Explorer may still be constructing its taskbar immediately after sign-in.
             await Task.Delay(750);
             await InitializeMainWindowAsync();
             _ = InitializeMediaServiceAsync();
-            DiagnosticLog.Write("WinUI launch completed.");
+            DiagnosticLog.Write("WPF launch completed.");
         }
         catch (Exception exception)
         {
-            DiagnosticLog.WriteException("WinUI launch failed", exception);
-            throw;
+            DiagnosticLog.WriteException("WPF launch failed", exception);
+            Shutdown(1);
         }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        MediaService?.Dispose();
+        ThermalService?.Dispose();
+        if (_ownsSingleInstanceMutex) _singleInstanceMutex?.ReleaseMutex();
+        _singleInstanceMutex?.Dispose();
+        base.OnExit(e);
     }
 
     private static async Task InitializeMediaServiceAsync()
@@ -66,16 +85,16 @@ public partial class App : Application
     {
         if (s_mainWindow is not null) return;
 
-        DiagnosticLog.Write("Creating the taskbar window.");
+        DiagnosticLog.Write("Creating the WPF taskbar window.");
         var window = new MainWindow();
         s_mainWindow = window;
         window.TaskbarContentHost.TaskbarWindowRecreationRequired += OnTaskbarRecreationRequired;
 
-        DiagnosticLog.Write("Waiting for Deskband11Lib to attach to the taskbar layout.");
+        DiagnosticLog.Write("Waiting for Deskband11Lib.Wpf to attach to the taskbar layout.");
         await window.PrepareTaskbarContentAsync();
-        DiagnosticLog.Write("Deskband11Lib attached to the taskbar layout.");
-        window.Activate();
-        DiagnosticLog.Write("Taskbar window activated.");
+        DiagnosticLog.Write("Deskband11Lib.Wpf attached to the taskbar layout.");
+        window.Show();
+        DiagnosticLog.Write("Taskbar window shown.");
     }
 
     private static async void OnTaskbarRecreationRequired(object? sender, EventArgs e)
@@ -99,30 +118,18 @@ public partial class App : Application
         catch (Exception exception)
         {
             DiagnosticLog.WriteException("Taskbar-window recreation failed", exception);
-            throw;
         }
     }
 
-    private static void OnUnhandledException(
+    private static void OnDispatcherUnhandledException(
         object sender,
-        Microsoft.UI.Xaml.UnhandledExceptionEventArgs args)
+        DispatcherUnhandledExceptionEventArgs args)
     {
-        DiagnosticLog.WriteException("Unhandled WinUI exception", args.Exception);
-
-        // Windows Insider build 26220 raises this from WinUI's optional
-        // presenter initialization on the dispatcher. The taskbar host uses
-        // the raw HWND and does not require that limited-access feature.
-        if (args.Exception.HResult == unchecked((int)0x80040111) &&
-            args.Exception.ToString().Contains(
-                "Windows.ApplicationModel.LimitedAccessFeatures",
-                StringComparison.Ordinal))
-        {
-            args.Handled = true;
-            DiagnosticLog.Write("Ignored unavailable optional WinUI limited-access feature.");
-        }
+        DiagnosticLog.WriteException("Unhandled WPF dispatcher exception", args.Exception);
+        args.Handled = true;
     }
 
-    private static void OnDomainUnhandledException(object sender, System.UnhandledExceptionEventArgs args)
+    private static void OnDomainUnhandledException(object sender, UnhandledExceptionEventArgs args)
     {
         if (args.ExceptionObject is Exception exception)
             DiagnosticLog.WriteException("Unhandled application-domain exception", exception);
@@ -130,6 +137,9 @@ public partial class App : Application
             DiagnosticLog.Write($"Unhandled application-domain exception: {args.ExceptionObject}");
     }
 
-    private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs args) =>
+    private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs args)
+    {
         DiagnosticLog.WriteException("Unobserved task exception", args.Exception);
+        args.SetObserved();
+    }
 }

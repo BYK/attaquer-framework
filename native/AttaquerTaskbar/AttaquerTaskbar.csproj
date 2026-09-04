@@ -8,8 +8,7 @@
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     <Platforms>x64;ARM64</Platforms>
-    <UseWinUI>true</UseWinUI>
-    <WinUISDKReferences>false</WinUISDKReferences>
+    <UseWPF>true</UseWPF>
     <EnableMsixTooling>true</EnableMsixTooling>
     <DefaultLanguage>en-US</DefaultLanguage>
     <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
@@ -17,8 +16,6 @@
     <GenerateTestArtifacts>false</GenerateTestArtifacts>
     <AppxBundle>Never</AppxBundle>
     <AppxBundlePlatforms>x64</AppxBundlePlatforms>
-    <PublishAot>true</PublishAot>
-    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
@@ -39,9 +36,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Deskband11Lib.WinUI" Version="1.4.2" />
+    <PackageReference Include="Deskband11Lib.Wpf" Version="1.4.2" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
-    <PackageReference Include="WinUIEx" Version="2.9.3" />
   </ItemGroup>
 </Project>
