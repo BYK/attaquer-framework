@@ -32,6 +32,13 @@ if (-not (Test-Path $packagePath)) {
 Import-Certificate `
     -FilePath $certificatePath `
     -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
+
+$existingPackages = @(Get-AppxPackage -Name BYK.AttaquerTaskbar)
+foreach ($existingPackage in $existingPackages) {
+    Write-Host "Removing existing $($existingPackage.PackageFullName)"
+    Remove-AppxPackage -Package $existingPackage.PackageFullName
+}
+
 Add-AppxPackage -Path $packagePath -ForceApplicationShutdown
 
 $installed = Get-AppxPackage -Name BYK.AttaquerTaskbar

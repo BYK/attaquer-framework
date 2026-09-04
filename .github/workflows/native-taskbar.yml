@@ -46,6 +46,15 @@ jobs:
             -Cert $certificate `
             -FilePath native/AttaquerTaskbar/AttaquerTaskbar.cer | Out-Null
 
+      - name: Stamp unique package version
+        shell: pwsh
+        run: |
+          $manifestPath = (Resolve-Path native/AttaquerTaskbar/Package.appxmanifest).Path
+          [xml]$manifest = Get-Content $manifestPath
+          $manifest.Package.Identity.Version = "0.1.${{ github.run_number }}.0"
+          $manifest.Save($manifestPath)
+          Write-Host "MSIX version: $($manifest.Package.Identity.Version)"
+
       - name: Restore
         run: dotnet restore native/AttaquerTaskbar/AttaquerTaskbar.csproj -r win-x64
 
