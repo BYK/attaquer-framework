@@ -1,8 +1,10 @@
 using System.Runtime.InteropServices;
+using AttaquerTaskbar.Controls;
 using AttaquerTaskbar.Diagnostics;
 using Deskband11Lib.Core;
 using Deskband11Lib.WinUI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using WinUIEx;
 
 namespace AttaquerTaskbar;
@@ -41,8 +43,37 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        DiagnosticLog.Write("Main window XAML initialized.");
 
-        TaskbarContentHost = new TaskbarContentHost(this, (FrameworkElement)Content, new()
+        try
+        {
+            SystemBackdrop = new TransparentTintBackdrop();
+            DiagnosticLog.Write("Transparent taskbar backdrop initialized.");
+        }
+        catch (Exception exception)
+        {
+            // The backdrop is cosmetic. Keep launching if WinUIEx cannot
+            // activate it in an unpackaged NativeAOT process.
+            DiagnosticLog.WriteException("Transparent taskbar backdrop failed", exception);
+        }
+
+        try
+        {
+            TaskbarRoot.Children.Add(new TaskbarContent());
+            DiagnosticLog.Write("Taskbar content XAML initialized.");
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.WriteException("Taskbar content XAML failed", exception);
+            TaskbarRoot.Children.Add(new TextBlock
+            {
+                Text = "Attaquer UI failed — see diagnostic log",
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(6, 0, 6, 0)
+            });
+        }
+
+        TaskbarContentHost = new TaskbarContentHost(this, TaskbarRoot, new()
         {
             PreferredWidth = 500,
             PreferredHeight = 48,

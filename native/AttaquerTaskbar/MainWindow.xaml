@@ -3,13 +3,7 @@
     x:Class="AttaquerTaskbar.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:AttaquerTaskbar.Controls"
-    xmlns:ex="using:WinUIEx"
     Title="Attaquer Taskbar"
     Closed="OnWindowClosed">
-    <Window.SystemBackdrop>
-        <ex:TransparentTintBackdrop />
-    </Window.SystemBackdrop>
-
-    <controls:TaskbarContent />
+    <Grid x:Name="TaskbarRoot" Background="Transparent" />
 </Window>

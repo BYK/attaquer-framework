@@ -40,5 +40,5 @@ internal static class DiagnosticLog
     }
 
     public static void WriteException(string context, Exception exception) =>
-        Write($"{context}: {exception}");
+        Write($"{context} (HRESULT 0x{exception.HResult:X8}): {exception}");
 }
