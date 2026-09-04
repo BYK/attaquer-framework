@@ -204,7 +204,7 @@ public sealed partial class TaskbarContent : UserControl
     private void OnRunAtStartupClick(object sender, RoutedEventArgs e) =>
         RunAtStartupMenuItem.IsChecked = StartupService.SetEnabled(RunAtStartupMenuItem.IsChecked);
 
-    private static void OnExitClick(object sender, RoutedEventArgs e) => Environment.Exit(0);
+    private void OnExitClick(object sender, RoutedEventArgs e) => Environment.Exit(0);
 
     private static string BuildDescription(string artist, string album)
     {
