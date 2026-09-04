@@ -1,10 +1,9 @@
 using System.Runtime.InteropServices;
-using AttaquerTaskbar.Controls;
 using AttaquerTaskbar.Diagnostics;
-using AttaquerTaskbar.TaskbarHosting;
 using Deskband11Lib.Core;
+using Deskband11Lib.WinUI;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
+using WinUIEx;
 
 namespace AttaquerTaskbar;
 
@@ -14,7 +13,7 @@ public sealed partial class MainWindow : Window
     private readonly WindowSubclassProcedure _windowSubclassProcedure;
 
     internal TaskbarContentHost TaskbarContentHost { get; }
-    public bool IsAlive => IsWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
+    public bool IsAlive => this.IsWindowAlive();
 
     private delegate nint WindowSubclassProcedure(
         nint windowHandle,
@@ -39,41 +38,12 @@ public sealed partial class MainWindow : Window
         nint wParam,
         nint lParam);
 
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool IsWindow(nint windowHandle);
-
     public MainWindow()
     {
-        Title = "Attaquer Taskbar";
-        Closed += OnWindowClosed;
-        var taskbarRoot = new Grid
-        {
-            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                Windows.UI.Color.FromArgb(0, 0, 0, 0))
-        };
-        Content = taskbarRoot;
-        DiagnosticLog.Write("Main window visual tree initialized without XAML.");
+        InitializeComponent();
+        DiagnosticLog.Write("Main window compiled XAML initialized.");
 
-        DiagnosticLog.Write("Transparent content configured without a SystemBackdrop.");
-
-        try
-        {
-            taskbarRoot.Children.Add(new TaskbarContent());
-            DiagnosticLog.Write("Taskbar content initialized without XAML.");
-        }
-        catch (Exception exception)
-        {
-            DiagnosticLog.WriteException("Taskbar content initialization failed", exception);
-            taskbarRoot.Children.Add(new TextBlock
-            {
-                Text = "Attaquer UI failed — see diagnostic log",
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(6, 0, 6, 0)
-            });
-        }
-
-        TaskbarContentHost = new TaskbarContentHost(this, taskbarRoot, new()
+        TaskbarContentHost = new TaskbarContentHost(this, (FrameworkElement)Content, new()
         {
             PreferredWidth = 500,
             PreferredHeight = 48,
@@ -82,14 +52,10 @@ public sealed partial class MainWindow : Window
             AnimateLayoutChanges = false,
             LayoutRefreshInterval = TimeSpan.FromMilliseconds(250)
         });
-        DiagnosticLog.Write("Deskband11Lib host created (500 x 48 preferred DIPs, automatic placement).");
+        DiagnosticLog.Write("BarPlay-compatible Deskband11Lib.WinUI host created.");
 
         _windowSubclassProcedure = OnWindowSubclassProcedure;
-        if (!SetWindowSubclass(
-                WinRT.Interop.WindowNative.GetWindowHandle(this),
-                _windowSubclassProcedure,
-                1,
-                0))
+        if (!SetWindowSubclass(this.GetWindowHandle(), _windowSubclassProcedure, 1, 0))
             DiagnosticLog.Write($"SetWindowSubclass failed with Win32 error {Marshal.GetLastPInvokeError()}.");
         else
             DiagnosticLog.Write("Window subclass installed.");
