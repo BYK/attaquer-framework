@@ -9,13 +9,6 @@
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     <Platforms>x64;ARM64</Platforms>
     <UseWPF>true</UseWPF>
-    <EnableMsixTooling>true</EnableMsixTooling>
-    <DefaultLanguage>en-US</DefaultLanguage>
-    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
-    <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
-    <GenerateTestArtifacts>false</GenerateTestArtifacts>
-    <AppxBundle>Never</AppxBundle>
-    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>

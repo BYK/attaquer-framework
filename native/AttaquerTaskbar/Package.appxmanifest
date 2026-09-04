@@ -22,10 +22,10 @@
       MaxVersionTested="10.0.26220.0" />
   </Dependencies>
   <Resources>
-    <Resource Language="x-generate" />
+    <Resource Language="en-US" />
   </Resources>
   <Applications>
-    <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
+    <Application Id="App" Executable="AttaquerTaskbar.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="Attaquer Taskbar"
         Description="Framework telemetry and media controls in the Windows taskbar"

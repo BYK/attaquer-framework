@@ -61,7 +61,7 @@ jobs:
       - name: Build
         run: dotnet build native/AttaquerTaskbar/AttaquerTaskbar.csproj -c Release -r win-x64 --no-restore
 
-      - name: Build signed MSIX
+      - name: Publish WPF app
         run: >-
           dotnet publish native/AttaquerTaskbar/AttaquerTaskbar.csproj
           -c Release
@@ -69,17 +69,44 @@ jobs:
           --self-contained true
           --no-restore
           -p:Platform=x64
-          -p:GenerateAppxPackageOnBuild=true
-          -p:UapAppxPackageBuildMode=SideLoadOnly
-          -p:AppxBundle=Never
-          -p:PackageCertificateKeyFile=AttaquerTaskbar_TemporaryKey.pfx
-          -p:PackageCertificatePassword=attaquer-ci-package
+          -o native-publish
+
+      - name: Build signed MSIX
+        shell: pwsh
+        run: |
+          $layout = Join-Path $PWD "package-layout"
+          New-Item -ItemType Directory -Path $layout | Out-Null
+          Copy-Item native-publish/* $layout -Recurse -Force
+          Copy-Item native/AttaquerTaskbar/Package.appxmanifest `
+            (Join-Path $layout "AppxManifest.xml")
+
+          $assets = Join-Path $layout "Assets"
+          New-Item -ItemType Directory -Path $assets -Force | Out-Null
+          Copy-Item native/AttaquerTaskbar/Assets/* $assets -Force
+
+          $sdkBin = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
+            -Directory |
+            Where-Object Name -Match '^10\.' |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+          if ($null -eq $sdkBin) { throw "Windows SDK tools were not found" }
+
+          $makeAppx = Join-Path $sdkBin.FullName "x64\makeappx.exe"
+          $signTool = Join-Path $sdkBin.FullName "x64\signtool.exe"
+          & $makeAppx pack /d $layout /p AttaquerTaskbar.msix /o
+          if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed with exit code $LASTEXITCODE" }
+
+          & $signTool sign `
+            /fd SHA256 `
+            /f native/AttaquerTaskbar/AttaquerTaskbar_TemporaryKey.pfx `
+            /p attaquer-ci-package `
+            AttaquerTaskbar.msix
+          if ($LASTEXITCODE -ne 0) { throw "SignTool failed with exit code $LASTEXITCODE" }
 
       - name: Assemble installer
         shell: pwsh
         run: |
-          $msix = Get-ChildItem native/AttaquerTaskbar/AppPackages -Recurse -Filter *.msix |
-            Select-Object -First 1
+          $msix = Get-Item AttaquerTaskbar.msix
           if ($null -eq $msix) { throw "AttaquerTaskbar.msix was not produced" }
           New-Item -ItemType Directory -Path native-package | Out-Null
           Copy-Item $msix.FullName native-package/AttaquerTaskbar.msix
