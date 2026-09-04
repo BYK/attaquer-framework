@@ -103,8 +103,24 @@ public partial class App : Application
         }
     }
 
-    private static void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs args) =>
+    private static void OnUnhandledException(
+        object sender,
+        Microsoft.UI.Xaml.UnhandledExceptionEventArgs args)
+    {
         DiagnosticLog.WriteException("Unhandled WinUI exception", args.Exception);
+
+        // Windows Insider build 26220 raises this from WinUI's optional
+        // presenter initialization on the dispatcher. The taskbar host uses
+        // the raw HWND and does not require that limited-access feature.
+        if (args.Exception.HResult == unchecked((int)0x80040111) &&
+            args.Exception.ToString().Contains(
+                "Windows.ApplicationModel.LimitedAccessFeatures",
+                StringComparison.Ordinal))
+        {
+            args.Handled = true;
+            DiagnosticLog.Write("Ignored unavailable optional WinUI limited-access feature.");
+        }
+    }
 
     private static void OnDomainUnhandledException(object sender, System.UnhandledExceptionEventArgs args)
     {
