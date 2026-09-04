@@ -54,11 +54,17 @@ public sealed partial class TaskbarContent : UserControl
     {
         _isCompact = compact;
 
-        LayoutRoot.Padding = compact ? new Thickness(2, 0) : new Thickness(4, 0);
+        LayoutRoot.Padding = compact
+            ? new Thickness(2, 0, 2, 0)
+            : new Thickness(4, 0, 4, 0);
         LayoutRoot.ColumnSpacing = compact ? 2 : 4;
         MediaGrid.ColumnSpacing = compact ? 3 : 5;
-        MediaSeparator.Margin = compact ? new Thickness(0, 5) : new Thickness(0, 7);
-        ThermalButton.Padding = compact ? new Thickness(2, 0) : new Thickness(4, 0);
+        MediaSeparator.Margin = compact
+            ? new Thickness(0, 5, 0, 5)
+            : new Thickness(0, 7, 0, 7);
+        ThermalButton.Padding = compact
+            ? new Thickness(2, 0, 2, 0)
+            : new Thickness(4, 0, 4, 0);
         ThermalPanel.Spacing = compact ? 3 : 5;
 
         CpuLabel.FontSize = FanLabel.FontSize = compact ? 8 : 9;

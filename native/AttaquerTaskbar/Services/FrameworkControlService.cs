@@ -134,7 +134,7 @@ public sealed class FrameworkControlService : IDisposable
         int? fanRpm = latest.Rpms is { Count: > 0 } && rpm is double value && double.IsFinite(value)
             ? (int)Math.Round(value)
             : null;
-        var fanPercent = fanRpm is not null && _calibration is not null
+        int? fanPercent = fanRpm is not null && _calibration is not null
             ? _calibration.ToPercent(fanRpm.Value)
             : null;
 
