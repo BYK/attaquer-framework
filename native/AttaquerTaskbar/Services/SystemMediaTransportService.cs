@@ -1,3 +1,4 @@
+using AttaquerTaskbar.Diagnostics;
 using AttaquerTaskbar.Models;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -39,8 +40,9 @@ public sealed class SystemMediaTransportService : IDisposable
             UpdateCurrentSession();
             await RefreshSnapshotAsync();
         }
-        catch
+        catch (Exception exception)
         {
+            DiagnosticLog.WriteException("Windows media-session broker initialization failed", exception);
             Interlocked.Exchange(ref _started, 0);
             Publish(MediaSnapshot.Empty);
 

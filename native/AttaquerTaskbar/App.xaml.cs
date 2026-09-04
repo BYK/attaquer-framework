@@ -33,18 +33,32 @@ public partial class App : Application
             MediaService = new SystemMediaTransportService(dispatcher);
             ThermalService = new FrameworkControlService(dispatcher);
             ThermalService.Start();
-            _ = MediaService.InitializeAsync();
-            DiagnosticLog.Write("Media and Framework Control services started.");
+            DiagnosticLog.Write("Framework Control service started; media initialization deferred.");
 
             // Explorer may still be constructing its taskbar immediately after sign-in.
             await Task.Delay(750);
             await InitializeMainWindowAsync();
+            _ = InitializeMediaServiceAsync();
             DiagnosticLog.Write("WinUI launch completed.");
         }
         catch (Exception exception)
         {
             DiagnosticLog.WriteException("WinUI launch failed", exception);
             throw;
+        }
+    }
+
+    private static async Task InitializeMediaServiceAsync()
+    {
+        DiagnosticLog.Write("Media service initialization started.");
+        try
+        {
+            await MediaService.InitializeAsync();
+            DiagnosticLog.Write("Media service initialization returned.");
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.WriteException("Media service initialization escaped its retry loop", exception);
         }
     }
 

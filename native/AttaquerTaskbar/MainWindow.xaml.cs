@@ -5,7 +5,6 @@ using AttaquerTaskbar.TaskbarHosting;
 using Deskband11Lib.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using WinUIEx;
 
 namespace AttaquerTaskbar;
 
@@ -56,17 +55,7 @@ public sealed partial class MainWindow : Window
         Content = taskbarRoot;
         DiagnosticLog.Write("Main window visual tree initialized without XAML.");
 
-        try
-        {
-            SystemBackdrop = new TransparentTintBackdrop();
-            DiagnosticLog.Write("Transparent taskbar backdrop initialized.");
-        }
-        catch (Exception exception)
-        {
-            // The backdrop is cosmetic. Keep launching if WinUIEx cannot
-            // activate it in an unpackaged NativeAOT process.
-            DiagnosticLog.WriteException("Transparent taskbar backdrop failed", exception);
-        }
+        DiagnosticLog.Write("Transparent content configured without a SystemBackdrop.");
 
         try
         {
@@ -96,7 +85,11 @@ public sealed partial class MainWindow : Window
         DiagnosticLog.Write("Deskband11Lib host created (500 x 48 preferred DIPs, automatic placement).");
 
         _windowSubclassProcedure = OnWindowSubclassProcedure;
-        if (!SetWindowSubclass(this.GetWindowHandle(), _windowSubclassProcedure, 1, 0))
+        if (!SetWindowSubclass(
+                WinRT.Interop.WindowNative.GetWindowHandle(this),
+                _windowSubclassProcedure,
+                1,
+                0))
             DiagnosticLog.Write($"SetWindowSubclass failed with Win32 error {Marshal.GetLastPInvokeError()}.");
         else
             DiagnosticLog.Write("Window subclass installed.");
