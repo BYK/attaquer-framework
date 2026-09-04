@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 using AttaquerTaskbar.Controls;
 using AttaquerTaskbar.Diagnostics;
+using AttaquerTaskbar.TaskbarHosting;
 using Deskband11Lib.Core;
-using Deskband11Lib.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WinUIEx;
@@ -14,7 +14,7 @@ public sealed partial class MainWindow : Window
     private const uint WindowEndSessionMessage = 0x0016;
     private readonly WindowSubclassProcedure _windowSubclassProcedure;
 
-    public TaskbarContentHost TaskbarContentHost { get; }
+    internal TaskbarContentHost TaskbarContentHost { get; }
     public bool IsAlive => this.IsWindowAlive();
 
     private delegate nint WindowSubclassProcedure(
