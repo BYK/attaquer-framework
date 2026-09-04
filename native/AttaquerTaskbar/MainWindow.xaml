@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8" ?>
-<Window
-    x:Class="AttaquerTaskbar.MainWindow"
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Attaquer Taskbar"
-    Closed="OnWindowClosed">
-    <Grid x:Name="TaskbarRoot" Background="Transparent" />
-</Window>

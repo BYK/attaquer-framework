@@ -42,8 +42,11 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
-        InitializeComponent();
-        DiagnosticLog.Write("Main window XAML initialized.");
+        Title = "Attaquer Taskbar";
+        Closed += OnWindowClosed;
+        var taskbarRoot = new Grid { Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.Transparent) };
+        Content = taskbarRoot;
+        DiagnosticLog.Write("Main window visual tree initialized without XAML.");
 
         try
         {
@@ -59,13 +62,13 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            TaskbarRoot.Children.Add(new TaskbarContent());
-            DiagnosticLog.Write("Taskbar content XAML initialized.");
+            taskbarRoot.Children.Add(new TaskbarContent());
+            DiagnosticLog.Write("Taskbar content initialized without XAML.");
         }
         catch (Exception exception)
         {
-            DiagnosticLog.WriteException("Taskbar content XAML failed", exception);
-            TaskbarRoot.Children.Add(new TextBlock
+            DiagnosticLog.WriteException("Taskbar content initialization failed", exception);
+            taskbarRoot.Children.Add(new TextBlock
             {
                 Text = "Attaquer UI failed — see diagnostic log",
                 VerticalAlignment = VerticalAlignment.Center,
@@ -73,7 +76,7 @@ public sealed partial class MainWindow : Window
             });
         }
 
-        TaskbarContentHost = new TaskbarContentHost(this, TaskbarRoot, new()
+        TaskbarContentHost = new TaskbarContentHost(this, taskbarRoot, new()
         {
             PreferredWidth = 500,
             PreferredHeight = 48,
