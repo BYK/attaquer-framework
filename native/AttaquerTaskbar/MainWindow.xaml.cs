@@ -15,7 +15,7 @@ public sealed partial class MainWindow : Window
     private readonly WindowSubclassProcedure _windowSubclassProcedure;
 
     internal TaskbarContentHost TaskbarContentHost { get; }
-    public bool IsAlive => this.IsWindowAlive();
+    public bool IsAlive => IsWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
 
     private delegate nint WindowSubclassProcedure(
         nint windowHandle,
@@ -39,6 +39,10 @@ public sealed partial class MainWindow : Window
         uint message,
         nint wParam,
         nint lParam);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsWindow(nint windowHandle);
 
     public MainWindow()
     {
