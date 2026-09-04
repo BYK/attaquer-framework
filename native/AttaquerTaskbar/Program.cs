@@ -1,3 +1,4 @@
+using AttaquerTaskbar.Diagnostics;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
@@ -11,17 +12,34 @@ public static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        WinRT.ComWrappersSupport.InitializeComWrappers();
+        DiagnosticLog.Initialize();
 
-        if (!AppInstance.FindOrRegisterForKey(SingleInstanceKey).IsCurrent) return 0;
-
-        Application.Start(_ =>
+        try
         {
-            var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
-            SynchronizationContext.SetSynchronizationContext(context);
-            new App();
-        });
+            DiagnosticLog.Write("Initializing WinRT COM wrappers.");
+            WinRT.ComWrappersSupport.InitializeComWrappers();
 
-        return 0;
+            DiagnosticLog.Write("Registering the single-instance key.");
+            if (!AppInstance.FindOrRegisterForKey(SingleInstanceKey).IsCurrent)
+            {
+                DiagnosticLog.Write("Another instance is already registered; exiting.");
+                return 0;
+            }
+
+            DiagnosticLog.Write("Starting the WinUI application.");
+            Application.Start(_ =>
+            {
+                var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
+                SynchronizationContext.SetSynchronizationContext(context);
+                new App();
+            });
+            DiagnosticLog.Write("The WinUI message loop ended normally.");
+            return 0;
+        }
+        catch (Exception exception)
+        {
+            DiagnosticLog.WriteException("Fatal startup failure", exception);
+            return 1;
+        }
     }
 }

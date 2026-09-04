@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using AttaquerTaskbar.Diagnostics;
 using Deskband11Lib.Core;
 using Deskband11Lib.WinUI;
 using Microsoft.UI.Xaml;
@@ -50,9 +51,13 @@ public sealed partial class MainWindow : Window
             AnimateLayoutChanges = false,
             LayoutRefreshInterval = TimeSpan.FromMilliseconds(250)
         });
+        DiagnosticLog.Write("Deskband11Lib host created (500 x 48 preferred DIPs, automatic placement).");
 
         _windowSubclassProcedure = OnWindowSubclassProcedure;
-        _ = SetWindowSubclass(this.GetWindowHandle(), _windowSubclassProcedure, 1, 0);
+        if (!SetWindowSubclass(this.GetWindowHandle(), _windowSubclassProcedure, 1, 0))
+            DiagnosticLog.Write($"SetWindowSubclass failed with Win32 error {Marshal.GetLastPInvokeError()}.");
+        else
+            DiagnosticLog.Write("Window subclass installed.");
     }
 
     public Task PrepareTaskbarContentAsync() => TaskbarContentHost.AttachWhenLayoutReadyAsync();

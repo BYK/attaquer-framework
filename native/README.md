@@ -65,6 +65,43 @@ published directory together; WinUI applications are not single-file binaries.
 - Right-click anywhere on the widget for startup, Framework Control and exit
   actions.
 
+## Troubleshooting a silent launch
+
+The first taskbar attachment can take up to about 15 seconds while Explorer's
+layout is measured. If no widget appears after that, check whether the process
+is still running:
+
+```powershell
+Get-Process AttaquerTaskbar -ErrorAction SilentlyContinue |
+  Select-Object Id, StartTime, Path
+```
+
+Then inspect the startup trace:
+
+```powershell
+Get-Content "$env:LOCALAPPDATA\AttaquerTaskbar\attaquer-taskbar.log" -Tail 100
+```
+
+- `Another instance is already registered` means a previous invisible copy is
+  running. End it in Task Manager, or run
+  `Stop-Process -Name AttaquerTaskbar -Force`, then start the app once.
+- A final `Waiting for Deskband11Lib...` line means the process cannot measure
+  or attach to this Windows taskbar layout.
+- A `WinUI launch failed` or `Unhandled ... exception` line contains the startup
+  failure and stack trace. Include those lines plus the Windows build from
+  `winver` in a bug report.
+
+If the process exits without recording an exception, Windows may have logged a
+native crash. This command shows recent matching Application log entries:
+
+```powershell
+Get-WinEvent -FilterHashtable `
+  @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-10)} |
+  Where-Object Message -Match 'AttaquerTaskbar' |
+  Select-Object TimeCreated, Id, ProviderName, Message |
+  Format-List
+```
+
 ## Compatibility boundary
 
 Taskbar hosting is not an official Windows extensibility API. Deskband11Lib uses
