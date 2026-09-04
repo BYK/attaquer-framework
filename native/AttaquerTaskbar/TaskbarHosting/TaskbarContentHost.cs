@@ -2,7 +2,6 @@ using AttaquerTaskbar.Diagnostics;
 using Deskband11Lib.Core;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
-using Microsoft.Win32;
 
 namespace AttaquerTaskbar.TaskbarHosting;
 
@@ -60,7 +59,6 @@ internal sealed class WinUiTaskbarHostPlatformAdapter : ITaskbarHostPlatformAdap
     private readonly Window _window;
     private readonly FrameworkElement _contentElement;
     private readonly TaskbarContentHostOptions _options;
-    private ElementTheme _originalContentTheme;
     private bool _isPrepared;
 
     public WinUiTaskbarHostPlatformAdapter(
@@ -103,10 +101,10 @@ internal sealed class WinUiTaskbarHostPlatformAdapter : ITaskbarHostPlatformAdap
     {
         if (_isPrepared) return;
 
-        _originalContentTheme = _contentElement.RequestedTheme;
-        _contentElement.RequestedTheme = IsSystemLightTheme()
-            ? ElementTheme.Light
-            : ElementTheme.Dark;
+        // RequestedTheme mutation forces WinUI to activate
+        // Windows.ApplicationModel.LimitedAccessFeatures on build 26220.
+        // ElementTheme.Default already tracks the taskbar's system theme.
+        DiagnosticLog.Write("Preparing WinUI content for HWND hosting without theme mutation.");
         _isPrepared = true;
         DiagnosticLog.Write("Prepared WinUI content for HWND hosting without AppWindow presenter APIs.");
     }
@@ -114,7 +112,6 @@ internal sealed class WinUiTaskbarHostPlatformAdapter : ITaskbarHostPlatformAdap
     public void RestoreWindowAfterChildHosting()
     {
         if (!_isPrepared) return;
-        _contentElement.RequestedTheme = _originalContentTheme;
         _isPrepared = false;
     }
 
@@ -131,12 +128,6 @@ internal sealed class WinUiTaskbarHostPlatformAdapter : ITaskbarHostPlatformAdap
     public ITaskbarHostTimer CreateTimer(TimeSpan interval, Action tick) =>
         new DispatcherQueueTaskbarHostTimer(_window.DispatcherQueue, interval, tick);
 
-    private static bool IsSystemLightTheme()
-    {
-        using var key = Registry.CurrentUser.OpenSubKey(
-            @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-        return key?.GetValue("SystemUsesLightTheme") is int value && value != 0;
-    }
 }
 
 internal sealed class DispatcherQueueTaskbarHostTimer : ITaskbarHostTimer
