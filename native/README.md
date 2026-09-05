@@ -5,6 +5,7 @@ A native Windows 11 taskbar companion for Framework laptops. It combines:
 - CPU temperature and calibrated fan duty from Framework Control
 - system-wide now-playing metadata and previous/play/next controls
 - automatic adaptation to both the standard and new compact taskbar layouts
+- an expanded media/thermal flyout with timeline seeking and persistent settings
 
 It keeps the Microsoft taskbar and hosts a WPF surface inside it using
 [Deskband11Lib](https://github.com/airtaxi/Deskband11Lib). The media integration
@@ -44,6 +45,32 @@ switches layout at 40 DIPs:
 This avoids BarPlay's fixed 36-DIP artwork plus outer margin overflowing a
 roughly 32-DIP compact taskbar.
 
+Metric labels default to **Auto**, which uses the original Attaquer-style fan
+and thermometer icons on the compact taskbar and `CPU` / `FAN` text on the
+standard taskbar. The flyout settings can force either style and can replace
+the current values with two-minute sparklines.
+
+## Modules and settings
+
+Click the thermal values, artwork or media title to open the expanded flyout.
+It contains current thermal values and history, larger now-playing artwork,
+timeline seeking, media controls, and a settings button.
+
+The compact and expanded views are provided by built-in `ITaskbarModule`
+implementations. Thermal and Media are the first two modules; additional
+built-ins can implement the same lifecycle, layout and theme contract without
+changing the host. External DLL discovery is intentionally not enabled yet so
+the plugin API can evolve without loading untrusted code into the taskbar
+process.
+
+Settings are saved to
+`%LOCALAPPDATA%\AttaquerTaskbar\settings.json` and currently include:
+
+- automatic, icon, or text metric labels
+- numeric values or compact sparklines
+- Thermal and Media module visibility
+- run at startup
+
 ## Build
 
 Install the .NET 10 SDK on Windows, then run:
@@ -60,11 +87,11 @@ limited-access feature activation is unavailable.
 
 ## Controls
 
-- Click the CPU/fan values to open Framework Control.
+- Click the CPU/fan values, artwork or media title to open the expanded flyout.
 - Use the inline previous, play/pause and next buttons for the current Windows
   media session.
-- Right-click anywhere on the widget for startup, Framework Control and exit
-  actions.
+- Use the flyout gear or right-click menu for settings.
+- Open Framework Control from the thermal flyout or right-click menu.
 
 ## Troubleshooting a silent launch
 

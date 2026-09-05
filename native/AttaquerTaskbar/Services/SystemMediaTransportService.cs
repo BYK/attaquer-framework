@@ -64,6 +64,10 @@ public sealed class SystemMediaTransportService : IDisposable
     public async Task<bool> TogglePlayPauseAsync() =>
         _currentSession is not null && await _currentSession.TryTogglePlayPauseAsync();
 
+    public async Task<bool> SeekAsync(TimeSpan position) =>
+        _currentSession is not null &&
+        await _currentSession.TryChangePlaybackPositionAsync(Math.Max(0, position.Ticks));
+
     public void Dispose()
     {
         if (_isDisposed) return;
@@ -111,6 +115,11 @@ public sealed class SystemMediaTransportService : IDisposable
         PlaybackInfoChangedEventArgs args) =>
         _dispatcher.BeginInvoke(() => _ = RefreshSnapshotAsync());
 
+    private void OnTimelinePropertiesChanged(
+        GlobalSystemMediaTransportControlsSession sender,
+        TimelinePropertiesChangedEventArgs args) =>
+        _dispatcher.BeginInvoke(() => _ = RefreshSnapshotAsync());
+
     private void UpdateCurrentSession()
     {
         DetachCurrentSession();
@@ -121,6 +130,7 @@ public sealed class SystemMediaTransportService : IDisposable
         {
             _currentSession.MediaPropertiesChanged += OnMediaPropertiesChanged;
             _currentSession.PlaybackInfoChanged += OnPlaybackInfoChanged;
+            _currentSession.TimelinePropertiesChanged += OnTimelinePropertiesChanged;
         }
     }
 
@@ -129,6 +139,7 @@ public sealed class SystemMediaTransportService : IDisposable
         if (_currentSession is null) return;
         _currentSession.MediaPropertiesChanged -= OnMediaPropertiesChanged;
         _currentSession.PlaybackInfoChanged -= OnPlaybackInfoChanged;
+        _currentSession.TimelinePropertiesChanged -= OnTimelinePropertiesChanged;
         _currentSession = null;
     }
 
@@ -151,6 +162,7 @@ public sealed class SystemMediaTransportService : IDisposable
 
             var playbackInfo = session.GetPlaybackInfo();
             var controls = playbackInfo.Controls;
+            var timeline = session.GetTimelineProperties();
 
             if (_cachedThumbnail is null && properties.Thumbnail is not null)
             {
@@ -167,6 +179,9 @@ public sealed class SystemMediaTransportService : IDisposable
                 controls.IsPreviousEnabled,
                 controls.IsNextEnabled,
                 controls.IsPlayEnabled || controls.IsPauseEnabled,
+                controls.IsPlaybackPositionEnabled,
+                timeline.Position,
+                timeline.EndTime,
                 _cachedThumbnail));
         }
         catch

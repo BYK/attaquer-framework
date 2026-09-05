@@ -9,6 +9,9 @@ public sealed record MediaSnapshot(
     bool CanSkipPrevious,
     bool CanSkipNext,
     bool CanPlayPause,
+    bool CanSeek,
+    TimeSpan Position,
+    TimeSpan EndTime,
     byte[]? Thumbnail)
 {
     public static MediaSnapshot Empty { get; } = new(
@@ -20,5 +23,8 @@ public sealed record MediaSnapshot(
         false,
         false,
         false,
+        false,
+        TimeSpan.Zero,
+        TimeSpan.Zero,
         null);
 }

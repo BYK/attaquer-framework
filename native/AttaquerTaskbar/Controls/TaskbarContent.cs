@@ -1,8 +1,8 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using AttaquerTaskbar.Controls.Modules;
 using AttaquerTaskbar.Models;
 using AttaquerTaskbar.Services;
 using Microsoft.Win32;
@@ -12,127 +12,46 @@ namespace AttaquerTaskbar.Controls;
 public sealed class TaskbarContent : UserControl
 {
     private const double CompactHeightThreshold = 40;
-    private static readonly FontFamily SymbolFont = new("Segoe Fluent Icons");
 
-    private readonly SolidColorBrush _coolBrush = Brush(0x30, 0x8C, 0x4A);
-    private readonly SolidColorBrush _warmBrush = Brush(0xC0, 0x6C, 0x00);
-    private readonly SolidColorBrush _hotBrush = Brush(0xD1, 0x34, 0x38);
-    private readonly SolidColorBrush _extremeBrush = Brush(0xA8, 0x00, 0x00);
-    private readonly SolidColorBrush _unavailableBrush = Brush(0x80, 0x80, 0x80);
-    private readonly SystemMediaTransportService _mediaService;
-    private readonly FrameworkControlService _thermalService;
-
+    private readonly SettingsService _settings;
+    private readonly ThermalTaskbarModule _thermalModule;
+    private readonly MediaTaskbarModule _mediaModule;
+    private readonly ITaskbarModule[] _modules;
     private readonly Grid _layoutRoot;
-    private readonly Button _thermalButton;
-    private readonly StackPanel _thermalPanel;
-    private readonly StackPanel _fanPair;
-    private readonly TextBlock _cpuLabel;
-    private readonly TextBlock _temperatureText;
-    private readonly TextBlock _fanLabel;
-    private readonly TextBlock _fanText;
-    private readonly Border _mediaSeparator;
-    private readonly Grid _mediaGrid;
-    private readonly Border _artworkHost;
-    private readonly TextBlock _artworkPlaceholder;
-    private readonly Image _artworkImage;
-    private readonly StackPanel _normalMetadata;
-    private readonly TextBlock _titleText;
-    private readonly TextBlock _descriptionText;
-    private readonly TextBlock _compactMetadata;
-    private readonly Button _previousButton;
-    private readonly TextBlock _previousIcon;
-    private readonly Button _playPauseButton;
-    private readonly TextBlock _playPauseIcon;
-    private readonly Button _nextButton;
-    private readonly TextBlock _nextIcon;
+    private readonly Border _separator;
+    private readonly Button _emptySettingsButton;
+    private readonly Popup _flyout;
+    private readonly Border _flyoutBorder;
+    private readonly Border _thermalFlyoutSection;
+    private readonly Border _mediaFlyoutSection;
+    private readonly SettingsPanel _settingsPanel;
+    private readonly Button _settingsButton;
     private readonly MenuItem _runAtStartupMenuItem;
 
-    private MediaSnapshot _mediaSnapshot = MediaSnapshot.Empty;
-    private bool _isCompact;
-    private bool _isLoaded;
+    private bool _loaded;
+    private bool _showingSettings;
 
     public TaskbarContent()
     {
-        _mediaService = App.MediaService;
-        _thermalService = App.ThermalService;
+        _settings = App.Settings;
+        _thermalModule = new ThermalTaskbarModule(App.ThermalService, _settings);
+        _mediaModule = new MediaTaskbarModule(App.MediaService);
+        _modules = [_thermalModule, _mediaModule];
+        foreach (var module in _modules) module.FlyoutRequested += OnFlyoutRequested;
 
-        _cpuLabel = SecondaryText("CPU", 9);
-        _temperatureText = StatusText("--°");
-        _fanLabel = SecondaryText("FAN", 9);
-        _fanText = StatusText("--");
-        _thermalPanel = HorizontalPanel();
-        _thermalPanel.Children.Add(Pair(_cpuLabel, _temperatureText));
-        _fanPair = Pair(_fanLabel, _fanText);
-        _fanPair.Margin = new Thickness(5, 0, 0, 0);
-        _thermalPanel.Children.Add(_fanPair);
-        _thermalButton = TransparentButton();
-        _thermalButton.Padding = new Thickness(4, 0, 4, 0);
-        _thermalButton.Content = _thermalPanel;
-        _thermalButton.Click += OnOpenFrameworkControlClick;
-
-        _artworkPlaceholder = Symbol("\uE93C", 16);
-        _artworkPlaceholder.Opacity = 0.65;
-        _artworkImage = new Image
-        {
-            Stretch = Stretch.UniformToFill,
-            Visibility = Visibility.Collapsed,
-            SnapsToDevicePixels = true
-        };
-        var artworkGrid = new Grid();
-        artworkGrid.Children.Add(_artworkPlaceholder);
-        artworkGrid.Children.Add(_artworkImage);
-        _artworkHost = new Border
-        {
-            Width = 32,
-            Height = 32,
-            Margin = new Thickness(0, 0, 5, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Background = new SolidColorBrush(Color.FromArgb(0x18, 0x80, 0x80, 0x80)),
-            CornerRadius = new CornerRadius(4),
-            ClipToBounds = true,
-            Child = artworkGrid
-        };
-
-        _titleText = MetadataText("Nothing playing", 12);
-        _descriptionText = MetadataText(string.Empty, 10);
-        _descriptionText.Opacity = 0.65;
-        _normalMetadata = new StackPanel();
-        _normalMetadata.Children.Add(_titleText);
-        _normalMetadata.Children.Add(_descriptionText);
-        _compactMetadata = MetadataText("Nothing playing", 11);
-        _compactMetadata.VerticalAlignment = VerticalAlignment.Center;
-        _compactMetadata.Visibility = Visibility.Collapsed;
-        var metadataGrid = new Grid { MinWidth = 20, VerticalAlignment = VerticalAlignment.Center };
-        metadataGrid.Children.Add(_normalMetadata);
-        metadataGrid.Children.Add(_compactMetadata);
-
-        _previousIcon = Symbol("\uE892", 15);
-        _previousButton = InlineButton(_previousIcon, "Previous", OnPreviousClick);
-        _playPauseIcon = Symbol("\uE768", 15);
-        _playPauseButton = InlineButton(_playPauseIcon, "Play or pause", OnPlayPauseClick);
-        _nextIcon = Symbol("\uE893", 15);
-        _nextButton = InlineButton(_nextIcon, "Next", OnNextClick);
-        var transportPanel = HorizontalPanel();
-        transportPanel.Margin = new Thickness(5, 0, 0, 0);
-        transportPanel.Children.Add(_previousButton);
-        _playPauseButton.Margin = new Thickness(1, 0, 1, 0);
-        transportPanel.Children.Add(_playPauseButton);
-        transportPanel.Children.Add(_nextButton);
-
-        _mediaGrid = new Grid();
-        _mediaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _mediaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        _mediaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        AddToColumn(_mediaGrid, _artworkHost, 0);
-        AddToColumn(_mediaGrid, metadataGrid, 1);
-        AddToColumn(_mediaGrid, transportPanel, 2);
-
-        _mediaSeparator = new Border
+        _separator = new Border
         {
             Width = 1,
             Margin = new Thickness(4, 7, 4, 7),
             Background = new SolidColorBrush(Color.FromArgb(0x38, 0x80, 0x80, 0x80))
         };
+
+        _emptySettingsButton = TaskbarUi.TransparentButton();
+        _emptySettingsButton.Padding = new Thickness(8, 0, 8, 0);
+        _emptySettingsButton.Content = TaskbarUi.Symbol("\uE713", 15);
+        _emptySettingsButton.ToolTip = "Attaquer Taskbar settings";
+        _emptySettingsButton.Click += (_, _) => OpenFlyout(showSettings: true);
+        _emptySettingsButton.Visibility = Visibility.Collapsed;
 
         _layoutRoot = new Grid
         {
@@ -142,18 +61,77 @@ public sealed class TaskbarContent : UserControl
         _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        AddToColumn(_layoutRoot, _thermalButton, 0);
-        AddToColumn(_layoutRoot, _mediaSeparator, 1);
-        AddToColumn(_layoutRoot, _mediaGrid, 2);
+        TaskbarUi.AddToColumn(_layoutRoot, _thermalModule.TaskbarView, 0);
+        TaskbarUi.AddToColumn(_layoutRoot, _separator, 1);
+        TaskbarUi.AddToColumn(_layoutRoot, _mediaModule.TaskbarView, 2);
+        Grid.SetColumnSpan(_emptySettingsButton, 3);
+        _layoutRoot.Children.Add(_emptySettingsButton);
+
+        _settingsButton = TaskbarUi.InlineButton(
+            TaskbarUi.Symbol("\uE713", 15),
+            "Settings",
+            OnSettingsButtonClick,
+            30);
+        var header = new Grid { Margin = new Thickness(0, 0, 0, 2) };
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var heading = TaskbarUi.Text("Attaquer Taskbar", 16);
+        heading.FontWeight = FontWeights.SemiBold;
+        header.Children.Add(heading);
+        Grid.SetColumn(_settingsButton, 1);
+        header.Children.Add(_settingsButton);
+
+        _thermalFlyoutSection = new Border { Child = _thermalModule.FlyoutView };
+        _mediaFlyoutSection = new Border { Child = _mediaModule.FlyoutView };
+        _settingsPanel = new SettingsPanel(_settings) { Visibility = Visibility.Collapsed };
+        var flyoutContent = new StackPanel();
+        flyoutContent.Children.Add(header);
+        flyoutContent.Children.Add(_thermalFlyoutSection);
+        flyoutContent.Children.Add(_mediaFlyoutSection);
+        flyoutContent.Children.Add(_settingsPanel);
+        var scrollViewer = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            MaxHeight = 600,
+            Content = flyoutContent
+        };
+        _flyoutBorder = new Border
+        {
+            Width = 440,
+            Padding = new Thickness(14),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                BlurRadius = 18,
+                ShadowDepth = 4,
+                Opacity = 0.35
+            },
+            Child = scrollViewer
+        };
+        _flyout = new Popup
+        {
+            PlacementTarget = this,
+            Placement = PlacementMode.Top,
+            VerticalOffset = -6,
+            StaysOpen = false,
+            AllowsTransparency = true,
+            PopupAnimation = PopupAnimation.Fade,
+            Child = _flyoutBorder
+        };
 
         var contextMenu = new ContextMenu();
         contextMenu.Opened += OnContextMenuOpened;
+        var settingsItem = new MenuItem { Header = "Settings" };
+        settingsItem.Click += (_, _) => OpenFlyout(showSettings: true);
         var openFrameworkControl = new MenuItem { Header = "Open Framework Control" };
-        openFrameworkControl.Click += OnOpenFrameworkControlClick;
+        openFrameworkControl.Click += (_, _) => FrameworkControlService.OpenDashboard();
         _runAtStartupMenuItem = new MenuItem { Header = "Run at startup", IsCheckable = true };
         _runAtStartupMenuItem.Click += OnRunAtStartupClick;
         var exit = new MenuItem { Header = "Exit" };
-        exit.Click += OnExitClick;
+        exit.Click += (_, _) => Environment.Exit(0);
+        contextMenu.Items.Add(settingsItem);
         contextMenu.Items.Add(openFrameworkControl);
         contextMenu.Items.Add(_runAtStartupMenuItem);
         contextMenu.Items.Add(new Separator());
@@ -162,31 +140,82 @@ public sealed class TaskbarContent : UserControl
 
         Content = _layoutRoot;
         Loaded += OnLoaded;
-        SizeChanged += OnSizeChanged;
         Unloaded += OnUnloaded;
+        SizeChanged += OnSizeChanged;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (_isLoaded) return;
-        _isLoaded = true;
-
-        _mediaService.StateChanged += ApplyMediaSnapshot;
-        _thermalService.StateChanged += ApplyThermalSnapshot;
+        if (_loaded) return;
+        _loaded = true;
+        foreach (var module in _modules) module.Start();
+        _settings.Changed += OnSettingsChanged;
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
         ApplySystemTheme();
-        ApplyMediaSnapshot(_mediaService.CurrentSnapshot);
-        ApplyThermalSnapshot(_thermalService.CurrentSnapshot);
-        ApplyDensity(ActualHeight < CompactHeightThreshold);
+        ApplyVisibility(_settings.Current);
+        ApplyLayout(ActualHeight < CompactHeightThreshold, ActualWidth);
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
-        if (!_isLoaded) return;
-        _isLoaded = false;
-        _mediaService.StateChanged -= ApplyMediaSnapshot;
-        _thermalService.StateChanged -= ApplyThermalSnapshot;
+        if (!_loaded) return;
+        _loaded = false;
+        _flyout.IsOpen = false;
+        foreach (var module in _modules) module.Stop();
+        _settings.Changed -= OnSettingsChanged;
         SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+    }
+
+    private void OnFlyoutRequested(object? sender, EventArgs e) => OpenFlyout(showSettings: false);
+
+    private void OpenFlyout(bool showSettings)
+    {
+        _showingSettings = showSettings;
+        _settingsPanel.Visibility = showSettings ? Visibility.Visible : Visibility.Collapsed;
+        _settingsPanel.Refresh();
+        _settingsButton.Background = showSettings
+            ? new SolidColorBrush(Color.FromArgb(0x30, 0x80, 0x80, 0x80))
+            : Brushes.Transparent;
+        ApplySystemTheme();
+        _flyout.IsOpen = true;
+    }
+
+    private void OnSettingsButtonClick(object sender, RoutedEventArgs e)
+    {
+        _showingSettings = !_showingSettings;
+        _settingsPanel.Visibility = _showingSettings ? Visibility.Visible : Visibility.Collapsed;
+        if (_showingSettings) _settingsPanel.Refresh();
+        _settingsButton.Background = _showingSettings
+            ? new SolidColorBrush(Color.FromArgb(0x30, 0x80, 0x80, 0x80))
+            : Brushes.Transparent;
+    }
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e) =>
+        ApplyLayout(e.NewSize.Height < CompactHeightThreshold, e.NewSize.Width);
+
+    private void ApplyLayout(bool compact, double width)
+    {
+        _layoutRoot.Margin = compact ? new Thickness(2, 0, 2, 0) : new Thickness(4, 0, 4, 0);
+        _separator.Margin = compact
+            ? new Thickness(2, 5, 2, 5)
+            : new Thickness(4, 7, 4, 7);
+        foreach (var module in _modules) module.ApplyLayout(compact, width);
+    }
+
+    private void OnSettingsChanged(TaskbarSettings settings) => ApplyVisibility(settings);
+
+    private void ApplyVisibility(TaskbarSettings settings)
+    {
+        _thermalModule.TaskbarView.Visibility = settings.ShowThermal ? Visibility.Visible : Visibility.Collapsed;
+        _mediaModule.TaskbarView.Visibility = settings.ShowMedia ? Visibility.Visible : Visibility.Collapsed;
+        _thermalFlyoutSection.Visibility = settings.ShowThermal ? Visibility.Visible : Visibility.Collapsed;
+        _mediaFlyoutSection.Visibility = settings.ShowMedia ? Visibility.Visible : Visibility.Collapsed;
+        _separator.Visibility = settings.ShowThermal && settings.ShowMedia
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        _emptySettingsButton.Visibility = !settings.ShowThermal && !settings.ShowMedia
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e) =>
@@ -197,327 +226,21 @@ public sealed class TaskbarContent : UserControl
         using var key = Registry.CurrentUser.OpenSubKey(
             @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
         var light = key?.GetValue("SystemUsesLightTheme") is int value && value != 0;
-        Foreground = light ? Brush(0x20, 0x20, 0x20) : Brushes.White;
-        _thermalButton.Foreground = Foreground;
-        _previousButton.Foreground = Foreground;
-        _playPauseButton.Foreground = Foreground;
-        _nextButton.Foreground = Foreground;
+        var foreground = light ? Brush(0x20, 0x20, 0x20) : Brushes.White;
+        Foreground = foreground;
+        _flyoutBorder.Foreground = foreground;
+        _flyoutBorder.Background = light ? Brush(0xF7, 0xF7, 0xF7) : Brush(0x24, 0x24, 0x24);
+        _flyoutBorder.BorderBrush = light ? Brush(0xD0, 0xD0, 0xD0) : Brush(0x4A, 0x4A, 0x4A);
+        _emptySettingsButton.Foreground = foreground;
+        _settingsButton.Foreground = foreground;
+        foreach (var module in _modules) module.ApplyTheme(foreground);
     }
-
-    private void OnSizeChanged(object sender, SizeChangedEventArgs e) =>
-        ApplyDensity(e.NewSize.Height < CompactHeightThreshold);
-
-    private void ApplyDensity(bool compact)
-    {
-        _isCompact = compact;
-        _layoutRoot.Margin = compact ? new Thickness(2, 0, 2, 0) : new Thickness(4, 0, 4, 0);
-        _mediaSeparator.Margin = compact
-            ? new Thickness(2, 5, 2, 5)
-            : new Thickness(4, 7, 4, 7);
-        _thermalButton.Padding = compact ? new Thickness(2, 0, 2, 0) : new Thickness(4, 0, 4, 0);
-        _fanPair.Margin = new Thickness(compact ? 3 : 5, 0, 0, 0);
-        _cpuLabel.FontSize = _fanLabel.FontSize = compact ? 8 : 9;
-        _temperatureText.FontSize = _fanText.FontSize = compact ? 10 : 11;
-
-        var artworkSize = compact ? 24 : 32;
-        _artworkHost.Width = _artworkHost.Height = artworkSize;
-        _artworkHost.Margin = new Thickness(0, 0, compact ? 3 : 5, 0);
-        _artworkHost.CornerRadius = new CornerRadius(compact ? 3 : 4);
-        _artworkPlaceholder.FontSize = compact ? 13 : 16;
-        _normalMetadata.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        _compactMetadata.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
-
-        var buttonSize = compact ? 24 : 28;
-        SetButtonDensity(_previousButton, _previousIcon, buttonSize, compact ? 13 : 15);
-        SetButtonDensity(_playPauseButton, _playPauseIcon, buttonSize, compact ? 13 : 15);
-        SetButtonDensity(_nextButton, _nextIcon, buttonSize, compact ? 13 : 15);
-        ApplyMediaSnapshot(_mediaSnapshot);
-    }
-
-    private static void SetButtonDensity(Button button, TextBlock icon, double size, double iconSize)
-    {
-        button.Width = button.Height = size;
-        icon.FontSize = iconSize;
-    }
-
-    private void ApplyMediaSnapshot(MediaSnapshot snapshot)
-    {
-        _mediaSnapshot = snapshot;
-        if (!snapshot.HasSession)
-        {
-            _artworkHost.Visibility = Visibility.Collapsed;
-            _titleText.Text = _compactMetadata.Text = "Nothing playing";
-            _descriptionText.Text = string.Empty;
-            _descriptionText.Visibility = Visibility.Collapsed;
-        }
-        else
-        {
-            _artworkHost.Visibility = Visibility.Visible;
-            _titleText.Text = string.IsNullOrWhiteSpace(snapshot.Title) ? "Unknown title" : snapshot.Title;
-            var description = BuildDescription(snapshot.Artist, snapshot.Album);
-            _descriptionText.Text = description;
-            _descriptionText.Visibility = string.IsNullOrWhiteSpace(description)
-                ? Visibility.Collapsed
-                : Visibility.Visible;
-            _compactMetadata.Text = BuildCompactText(snapshot.Title, snapshot.Artist);
-        }
-
-        _artworkImage.Source = CreateBitmap(snapshot.Thumbnail);
-        _artworkImage.Visibility = snapshot.HasSession && snapshot.Thumbnail is not null
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        _artworkPlaceholder.Visibility = _artworkImage.Visibility == Visibility.Visible
-            ? Visibility.Collapsed
-            : Visibility.Visible;
-        _previousButton.IsEnabled = snapshot.CanSkipPrevious;
-        _nextButton.IsEnabled = snapshot.CanSkipNext;
-        _playPauseButton.IsEnabled = snapshot.CanPlayPause;
-        _playPauseIcon.Text = snapshot.IsPlaying ? "\uE769" : "\uE768";
-
-        var hideSecondaryControls = ActualWidth > 0 && ActualWidth < (_isCompact ? 330 : 380);
-        _previousButton.Visibility = hideSecondaryControls ? Visibility.Collapsed : Visibility.Visible;
-        _nextButton.Visibility = hideSecondaryControls ? Visibility.Collapsed : Visibility.Visible;
-    }
-
-    private void ApplyThermalSnapshot(ThermalSnapshot snapshot)
-    {
-        if (!snapshot.IsAvailable)
-        {
-            _temperatureText.Text = "--°";
-            _fanText.Text = "--";
-            _temperatureText.Foreground = _fanText.Foreground = _unavailableBrush;
-            _thermalButton.ToolTip = "Framework Control is unavailable at 127.0.0.1:30912";
-            return;
-        }
-
-        _temperatureText.Text = snapshot.TemperatureCelsius is double temperature
-            ? $"{Math.Round(temperature):0}°"
-            : "--°";
-        _temperatureText.Foreground = snapshot.TemperatureCelsius is double temp
-            ? TemperatureBrush(temp)
-            : _unavailableBrush;
-        _fanText.Text = snapshot.FanPercent is int percent
-            ? $"{percent}%"
-            : snapshot.FanRpm is int rpm ? $"{rpm} rpm" : "--";
-        _fanText.Foreground = snapshot.FanPercent is int fanPercent
-            ? FanBrush(fanPercent)
-            : snapshot.FanRpm is not null ? _coolBrush : _unavailableBrush;
-
-        var fanDetail = snapshot.FanPercent is int fanDuty && snapshot.FanRpm is int fanRpm
-            ? $"Fan: {fanDuty}% ({fanRpm} RPM)"
-            : snapshot.FanRpm is int rawRpm
-                ? $"Fan: {rawRpm} RPM (run Framework Control calibration for %)"
-                : "Fan: unavailable";
-        _thermalButton.ToolTip =
-            $"CPU: {_temperatureText.Text}\n{fanDetail}\nClick to open Framework Control";
-    }
-
-    private async void OnPreviousClick(object sender, RoutedEventArgs e) =>
-        await _mediaService.SkipPreviousAsync();
-
-    private async void OnPlayPauseClick(object sender, RoutedEventArgs e) =>
-        await _mediaService.TogglePlayPauseAsync();
-
-    private async void OnNextClick(object sender, RoutedEventArgs e) =>
-        await _mediaService.SkipNextAsync();
-
-    private static void OnOpenFrameworkControlClick(object sender, RoutedEventArgs e) =>
-        FrameworkControlService.OpenDashboard();
 
     private void OnContextMenuOpened(object sender, RoutedEventArgs e) =>
         _runAtStartupMenuItem.IsChecked = StartupService.IsEnabled();
 
     private void OnRunAtStartupClick(object sender, RoutedEventArgs e) =>
         _runAtStartupMenuItem.IsChecked = StartupService.SetEnabled(_runAtStartupMenuItem.IsChecked);
-
-    private static void OnExitClick(object sender, RoutedEventArgs e) => Environment.Exit(0);
-
-    private SolidColorBrush TemperatureBrush(double temperature) =>
-        temperature switch
-        {
-            < 60 => _coolBrush,
-            < 75 => _warmBrush,
-            < 90 => _hotBrush,
-            _ => _extremeBrush
-        };
-
-    private SolidColorBrush FanBrush(int percent) =>
-        percent switch
-        {
-            < 35 => _coolBrush,
-            < 55 => _warmBrush,
-            < 80 => _hotBrush,
-            _ => _extremeBrush
-        };
-
-    private static Button TransparentButton()
-    {
-        var border = new FrameworkElementFactory(typeof(Border));
-        border.SetValue(
-            Border.BackgroundProperty,
-            new TemplateBindingExtension(Control.BackgroundProperty));
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
-
-        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
-        presenter.SetValue(
-            ContentPresenter.ContentProperty,
-            new TemplateBindingExtension(ContentControl.ContentProperty));
-        presenter.SetValue(
-            ContentPresenter.HorizontalAlignmentProperty,
-            HorizontalAlignment.Center);
-        presenter.SetValue(
-            ContentPresenter.VerticalAlignmentProperty,
-            VerticalAlignment.Center);
-        border.AppendChild(presenter);
-
-        var template = new ControlTemplate(typeof(Button)) { VisualTree = border };
-        template.Triggers.Add(new Trigger
-        {
-            Property = IsMouseOverProperty,
-            Value = true,
-            Setters =
-            {
-                new Setter(
-                    Control.BackgroundProperty,
-                    new SolidColorBrush(Color.FromArgb(0x28, 0x80, 0x80, 0x80)))
-            }
-        });
-        template.Triggers.Add(new Trigger
-        {
-            Property = Button.IsPressedProperty,
-            Value = true,
-            Setters =
-            {
-                new Setter(
-                    Control.BackgroundProperty,
-                    new SolidColorBrush(Color.FromArgb(0x48, 0x80, 0x80, 0x80)))
-            }
-        });
-        template.Triggers.Add(new Trigger
-        {
-            Property = IsEnabledProperty,
-            Value = false,
-            Setters =
-            {
-                new Setter(OpacityProperty, 0.35),
-                new Setter(Control.BackgroundProperty, Brushes.Transparent)
-            }
-        });
-
-        return new Button
-        {
-            MinWidth = 0,
-            MinHeight = 0,
-            Padding = new Thickness(0),
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            VerticalContentAlignment = VerticalAlignment.Center,
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            Focusable = false,
-            Template = template
-        };
-    }
-
-    private static Button InlineButton(UIElement content, string tooltip, RoutedEventHandler handler)
-    {
-        var button = TransparentButton();
-        button.Width = button.Height = 28;
-        button.Content = content;
-        button.ToolTip = tooltip;
-        button.Click += handler;
-        return button;
-    }
-
-    private static TextBlock Symbol(string glyph, double fontSize) => new()
-    {
-        Text = glyph,
-        FontFamily = SymbolFont,
-        FontSize = fontSize,
-        HorizontalAlignment = HorizontalAlignment.Center,
-        VerticalAlignment = VerticalAlignment.Center
-    };
-
-    private static TextBlock SecondaryText(string text, double fontSize) => new()
-    {
-        Text = text,
-        FontSize = fontSize,
-        VerticalAlignment = VerticalAlignment.Center,
-        Opacity = 0.65
-    };
-
-    private static TextBlock StatusText(string text) => new()
-    {
-        Text = text,
-        FontSize = 11,
-        FontWeight = FontWeights.SemiBold,
-        VerticalAlignment = VerticalAlignment.Center
-    };
-
-    private static TextBlock MetadataText(string text, double fontSize) => new()
-    {
-        Text = text,
-        FontSize = fontSize,
-        TextTrimming = TextTrimming.CharacterEllipsis,
-        VerticalAlignment = VerticalAlignment.Center
-    };
-
-    private static StackPanel HorizontalPanel() => new()
-    {
-        Orientation = Orientation.Horizontal,
-        VerticalAlignment = VerticalAlignment.Center
-    };
-
-    private static StackPanel Pair(FrameworkElement first, FrameworkElement second)
-    {
-        var panel = HorizontalPanel();
-        second.SetValue(MarginProperty, new Thickness(2, 0, 0, 0));
-        panel.Children.Add(first);
-        panel.Children.Add(second);
-        return panel;
-    }
-
-    private static void AddToColumn(Grid grid, FrameworkElement element, int column)
-    {
-        Grid.SetColumn(element, column);
-        grid.Children.Add(element);
-    }
-
-    private static BitmapImage? CreateBitmap(byte[]? bytes)
-    {
-        if (bytes is null || bytes.Length == 0) return null;
-
-        try
-        {
-            using var stream = new MemoryStream(bytes, writable: false);
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.StreamSource = stream;
-            bitmap.EndInit();
-            bitmap.Freeze();
-            return bitmap;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static string BuildDescription(string artist, string album)
-    {
-        if (!string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(album))
-            return $"{artist} · {album}";
-        return !string.IsNullOrWhiteSpace(artist) ? artist : album;
-    }
-
-    private static string BuildCompactText(string title, string artist)
-    {
-        if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(artist)) return "Unknown media";
-        if (string.IsNullOrWhiteSpace(artist)) return title;
-        if (string.IsNullOrWhiteSpace(title)) return artist;
-        return $"{title} · {artist}";
-    }
 
     private static SolidColorBrush Brush(byte red, byte green, byte blue) =>
         new(Color.FromRgb(red, green, blue));

@@ -13,6 +13,7 @@ public partial class App : Application
 
     public static SystemMediaTransportService MediaService { get; private set; } = null!;
     public static FrameworkControlService ThermalService { get; private set; } = null!;
+    public static SettingsService Settings { get; private set; } = null!;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -41,6 +42,7 @@ public partial class App : Application
             TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
             base.OnStartup(e);
 
+            Settings = new SettingsService();
             MediaService = new SystemMediaTransportService(Dispatcher);
             ThermalService = new FrameworkControlService(Dispatcher);
             ThermalService.Start();
