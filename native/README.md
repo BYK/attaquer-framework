@@ -52,9 +52,11 @@ the current values with two-minute sparklines.
 
 ## Modules and settings
 
-Click the thermal values, artwork or media title to open the expanded flyout.
-It contains current thermal values and history, larger now-playing artwork,
-timeline seeking, media controls, and a settings button.
+Hover over the thermal strip for a compact two-graph preview. Click the thermal
+strip, artwork or media title to open the complete flyout. It contains current
+thermal values and history, larger now-playing artwork, timeline seeking, media
+controls, and a settings button. Settings open as a separate flyout page so the
+panel stays compact without a nested scrollbar.
 
 The compact and expanded views are provided by built-in `ITaskbarModule`
 implementations. Thermal and Media are the first two modules; additional

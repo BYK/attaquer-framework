@@ -68,8 +68,8 @@ internal sealed class MediaTaskbarModule : ITaskbarModule
         var metadataButton = TaskbarUi.TransparentButton();
         metadataButton.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         metadataButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+        metadataButton.Cursor = Cursors.Hand;
         metadataButton.Content = metadataGrid;
-        metadataButton.Click += (_, _) => FlyoutRequested?.Invoke(this, EventArgs.Empty);
 
         _previousIcon = TaskbarUi.Symbol("\uE892", 15);
         _previousButton = TaskbarUi.InlineButton(_previousIcon, "Previous", OnPreviousClick);
@@ -89,7 +89,7 @@ internal sealed class MediaTaskbarModule : ITaskbarModule
         _taskbarRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         _taskbarRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _taskbarArtworkHost.Cursor = Cursors.Hand;
-        _taskbarArtworkHost.MouseLeftButtonUp += (_, _) => FlyoutRequested?.Invoke(this, EventArgs.Empty);
+        _taskbarRoot.PreviewMouseLeftButtonUp += OnTaskbarRootReleased;
         TaskbarUi.AddToColumn(_taskbarRoot, _taskbarArtworkHost, 0);
         TaskbarUi.AddToColumn(_taskbarRoot, metadataButton, 1);
         TaskbarUi.AddToColumn(_taskbarRoot, transport, 2);
@@ -254,6 +254,21 @@ internal sealed class MediaTaskbarModule : ITaskbarModule
     {
         if (_updatingTimeline || !_snapshot.CanSeek) return;
         await _service.SeekAsync(TimeSpan.FromSeconds(_timeline.Value));
+    }
+
+    private void OnTaskbarRootReleased(object sender, MouseButtonEventArgs e)
+    {
+        for (var source = e.OriginalSource as DependencyObject;
+             source is not null;
+             source = VisualTreeHelper.GetParent(source))
+        {
+            if (ReferenceEquals(source, _previousButton) ||
+                ReferenceEquals(source, _playPauseButton) ||
+                ReferenceEquals(source, _nextButton))
+                return;
+        }
+
+        FlyoutRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private async void OnPreviousClick(object sender, RoutedEventArgs e) =>

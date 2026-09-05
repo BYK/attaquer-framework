@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Threading;
 using AttaquerTaskbar.Controls.Modules;
 using AttaquerTaskbar.Models;
 using AttaquerTaskbar.Services;
@@ -23,6 +24,9 @@ public sealed class TaskbarContent : UserControl
     private readonly Button _emptySettingsButton;
     private readonly Popup _flyout;
     private readonly Border _flyoutBorder;
+    private readonly Popup _hoverPopup;
+    private readonly Border _hoverBorder;
+    private readonly DispatcherTimer _hoverTimer;
     private readonly Border _thermalFlyoutSection;
     private readonly Border _mediaFlyoutSection;
     private readonly SettingsPanel _settingsPanel;
@@ -39,6 +43,8 @@ public sealed class TaskbarContent : UserControl
         _mediaModule = new MediaTaskbarModule(App.MediaService);
         _modules = [_thermalModule, _mediaModule];
         foreach (var module in _modules) module.FlyoutRequested += OnFlyoutRequested;
+        _thermalModule.HoverRequested += OnThermalHoverRequested;
+        _thermalModule.HoverDismissed += OnThermalHoverDismissed;
 
         _separator = new Border
         {
@@ -90,13 +96,6 @@ public sealed class TaskbarContent : UserControl
         flyoutContent.Children.Add(_thermalFlyoutSection);
         flyoutContent.Children.Add(_mediaFlyoutSection);
         flyoutContent.Children.Add(_settingsPanel);
-        var scrollViewer = new ScrollViewer
-        {
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            MaxHeight = 600,
-            Content = flyoutContent
-        };
         _flyoutBorder = new Border
         {
             Width = 440,
@@ -109,7 +108,7 @@ public sealed class TaskbarContent : UserControl
                 ShadowDepth = 4,
                 Opacity = 0.35
             },
-            Child = scrollViewer
+            Child = flyoutContent
         };
         _flyout = new Popup
         {
@@ -121,6 +120,34 @@ public sealed class TaskbarContent : UserControl
             PopupAnimation = PopupAnimation.Fade,
             Child = _flyoutBorder
         };
+
+        _hoverBorder = new Border
+        {
+            Width = 390,
+            Padding = new Thickness(10),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(9),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                BlurRadius = 14,
+                ShadowDepth = 3,
+                Opacity = 0.3
+            },
+            Child = _thermalModule.HoverView
+        };
+        _hoverPopup = new Popup
+        {
+            PlacementTarget = _thermalModule.TaskbarView,
+            Placement = PlacementMode.Top,
+            VerticalOffset = -4,
+            StaysOpen = false,
+            AllowsTransparency = true,
+            PopupAnimation = PopupAnimation.Fade,
+            IsHitTestVisible = false,
+            Child = _hoverBorder
+        };
+        _hoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _hoverTimer.Tick += OnHoverTimerTick;
 
         var contextMenu = new ContextMenu();
         contextMenu.Opened += OnContextMenuOpened;
@@ -162,21 +189,27 @@ public sealed class TaskbarContent : UserControl
         if (!_loaded) return;
         _loaded = false;
         _flyout.IsOpen = false;
+        _hoverPopup.IsOpen = false;
+        _hoverTimer.Stop();
         foreach (var module in _modules) module.Stop();
         _settings.Changed -= OnSettingsChanged;
         SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
     }
 
-    private void OnFlyoutRequested(object? sender, EventArgs e) => OpenFlyout(showSettings: false);
+    private void OnFlyoutRequested(object? sender, EventArgs e)
+    {
+        DismissHover();
+        OpenFlyout(showSettings: false);
+    }
 
     private void OpenFlyout(bool showSettings)
     {
         _showingSettings = showSettings;
-        _settingsPanel.Visibility = showSettings ? Visibility.Visible : Visibility.Collapsed;
         _settingsPanel.Refresh();
         _settingsButton.Background = showSettings
             ? new SolidColorBrush(Color.FromArgb(0x30, 0x80, 0x80, 0x80))
             : Brushes.Transparent;
+        ApplyFlyoutPage();
         ApplySystemTheme();
         _flyout.IsOpen = true;
     }
@@ -184,11 +217,11 @@ public sealed class TaskbarContent : UserControl
     private void OnSettingsButtonClick(object sender, RoutedEventArgs e)
     {
         _showingSettings = !_showingSettings;
-        _settingsPanel.Visibility = _showingSettings ? Visibility.Visible : Visibility.Collapsed;
         if (_showingSettings) _settingsPanel.Refresh();
         _settingsButton.Background = _showingSettings
             ? new SolidColorBrush(Color.FromArgb(0x30, 0x80, 0x80, 0x80))
             : Brushes.Transparent;
+        ApplyFlyoutPage();
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e) =>
@@ -209,14 +242,47 @@ public sealed class TaskbarContent : UserControl
     {
         _thermalModule.TaskbarView.Visibility = settings.ShowThermal ? Visibility.Visible : Visibility.Collapsed;
         _mediaModule.TaskbarView.Visibility = settings.ShowMedia ? Visibility.Visible : Visibility.Collapsed;
-        _thermalFlyoutSection.Visibility = settings.ShowThermal ? Visibility.Visible : Visibility.Collapsed;
-        _mediaFlyoutSection.Visibility = settings.ShowMedia ? Visibility.Visible : Visibility.Collapsed;
         _separator.Visibility = settings.ShowThermal && settings.ShowMedia
             ? Visibility.Visible
             : Visibility.Collapsed;
         _emptySettingsButton.Visibility = !settings.ShowThermal && !settings.ShowMedia
             ? Visibility.Visible
             : Visibility.Collapsed;
+        ApplyFlyoutPage();
+    }
+
+    private void ApplyFlyoutPage()
+    {
+        _settingsPanel.Visibility = _showingSettings ? Visibility.Visible : Visibility.Collapsed;
+        _thermalFlyoutSection.Visibility = !_showingSettings && _settings.Current.ShowThermal
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        _mediaFlyoutSection.Visibility = !_showingSettings && _settings.Current.ShowMedia
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void OnThermalHoverRequested(object? sender, EventArgs e)
+    {
+        if (_flyout.IsOpen) return;
+        _hoverTimer.Stop();
+        _hoverTimer.Start();
+    }
+
+    private void OnThermalHoverDismissed(object? sender, EventArgs e) => DismissHover();
+
+    private void OnHoverTimerTick(object? sender, EventArgs e)
+    {
+        _hoverTimer.Stop();
+        if (_flyout.IsOpen || !_thermalModule.TaskbarView.IsMouseOver) return;
+        ApplySystemTheme();
+        _hoverPopup.IsOpen = true;
+    }
+
+    private void DismissHover()
+    {
+        _hoverTimer.Stop();
+        _hoverPopup.IsOpen = false;
     }
 
     private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e) =>
@@ -232,6 +298,9 @@ public sealed class TaskbarContent : UserControl
         TextElement.SetForeground(_flyoutBorder, foreground);
         _flyoutBorder.Background = light ? Brush(0xF7, 0xF7, 0xF7) : Brush(0x24, 0x24, 0x24);
         _flyoutBorder.BorderBrush = light ? Brush(0xD0, 0xD0, 0xD0) : Brush(0x4A, 0x4A, 0x4A);
+        TextElement.SetForeground(_hoverBorder, foreground);
+        _hoverBorder.Background = _flyoutBorder.Background;
+        _hoverBorder.BorderBrush = _flyoutBorder.BorderBrush;
         _emptySettingsButton.Foreground = foreground;
         _settingsButton.Foreground = foreground;
         foreach (var module in _modules) module.ApplyTheme(foreground);

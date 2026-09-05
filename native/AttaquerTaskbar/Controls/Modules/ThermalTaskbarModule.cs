@@ -1,12 +1,13 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using AttaquerTaskbar.Models;
 using AttaquerTaskbar.Services;
 
 namespace AttaquerTaskbar.Controls.Modules;
 
-internal sealed class ThermalTaskbarModule : ITaskbarModule
+internal sealed class ThermalTaskbarModule : ITaskbarModule, ITaskbarHoverModule
 {
     private readonly SolidColorBrush _coolBrush = Brush(0x30, 0x8C, 0x4A);
     private readonly SolidColorBrush _warmBrush = Brush(0xC0, 0x6C, 0x00);
@@ -24,6 +25,10 @@ internal sealed class ThermalTaskbarModule : ITaskbarModule
     private readonly TextBlock _expandedTemperature;
     private readonly TextBlock _expandedFan;
     private readonly TextBlock _expandedFanDetail;
+    private readonly Sparkline _hoverCpuSparkline;
+    private readonly Sparkline _hoverFanSparkline;
+    private readonly TextBlock _hoverTemperature;
+    private readonly TextBlock _hoverFan;
 
     private ThermalSnapshot _snapshot = ThermalSnapshot.Unavailable;
     private Brush _foreground = Brushes.White;
@@ -51,7 +56,11 @@ internal sealed class ThermalTaskbarModule : ITaskbarModule
         _taskbarButton = TaskbarUi.TransparentButton();
         _taskbarButton.Padding = new Thickness(4, 0, 4, 0);
         _taskbarButton.Content = _compactPanel;
-        _taskbarButton.Click += (_, _) => FlyoutRequested?.Invoke(this, EventArgs.Empty);
+        _taskbarButton.Cursor = Cursors.Hand;
+        _taskbarButton.PreviewMouseLeftButtonUp += (_, _) =>
+            FlyoutRequested?.Invoke(this, EventArgs.Empty);
+        _taskbarButton.MouseEnter += (_, _) => HoverRequested?.Invoke(this, EventArgs.Empty);
+        _taskbarButton.MouseLeave += (_, _) => HoverDismissed?.Invoke(this, EventArgs.Empty);
         TaskbarView = _taskbarButton;
 
         _expandedTemperature = ValueText("--°", 22);
@@ -102,6 +111,32 @@ internal sealed class ThermalTaskbarModule : ITaskbarModule
         Grid.SetRow(cards, 1);
         flyout.Children.Add(cards);
         FlyoutView = flyout;
+
+        _hoverTemperature = ValueText("--°", 18);
+        _hoverFan = ValueText("--", 18);
+        _hoverCpuSparkline = new Sparkline(60, 25, 105) { Width = 118, Height = 28 };
+        _hoverFanSparkline = new Sparkline(60, 0, 100) { Width = 118, Height = 28 };
+        var hoverCards = new Grid();
+        hoverCards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        hoverCards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var hoverCpuCard = CreateCard(
+            "CPU temperature",
+            TaskbarUi.ThermometerIcon(14),
+            _hoverTemperature,
+            _hoverCpuSparkline,
+            null);
+        hoverCpuCard.Margin = new Thickness(0, 0, 4, 0);
+        hoverCards.Children.Add(hoverCpuCard);
+        var hoverFanCard = CreateCard(
+            "Fan",
+            TaskbarUi.FanIcon(14),
+            _hoverFan,
+            _hoverFanSparkline,
+            null);
+        hoverFanCard.Margin = new Thickness(4, 0, 0, 0);
+        Grid.SetColumn(hoverFanCard, 1);
+        hoverCards.Children.Add(hoverFanCard);
+        HoverView = hoverCards;
     }
 
     public string Id => "thermal";
@@ -110,7 +145,13 @@ internal sealed class ThermalTaskbarModule : ITaskbarModule
 
     public FrameworkElement FlyoutView { get; }
 
+    public FrameworkElement HoverView { get; }
+
     public event EventHandler? FlyoutRequested;
+
+    public event EventHandler? HoverRequested;
+
+    public event EventHandler? HoverDismissed;
 
     public void Start()
     {
@@ -180,33 +221,39 @@ internal sealed class ThermalTaskbarModule : ITaskbarModule
         _fanMetric.Sparkline.Add(snapshot.FanPercent);
         _expandedCpuSparkline.Add(snapshot.TemperatureCelsius);
         _expandedFanSparkline.Add(snapshot.FanPercent);
+        _hoverCpuSparkline.Add(snapshot.TemperatureCelsius);
+        _hoverFanSparkline.Add(snapshot.FanPercent);
 
         if (!snapshot.IsAvailable)
         {
-            _cpuMetric.Value.Text = _expandedTemperature.Text = "--°";
-            _fanMetric.Value.Text = _expandedFan.Text = "--";
+            _cpuMetric.Value.Text = _expandedTemperature.Text = _hoverTemperature.Text = "--°";
+            _fanMetric.Value.Text = _expandedFan.Text = _hoverFan.Text = "--";
             _expandedFanDetail.Text = "Framework Control unavailable";
             SetMetricBrush(_cpuMetric, _expandedCpuSparkline, _expandedTemperature, _unavailableBrush);
             SetMetricBrush(_fanMetric, _expandedFanSparkline, _expandedFan, _unavailableBrush);
+            SetHoverBrush(_hoverCpuSparkline, _hoverTemperature, _unavailableBrush);
+            SetHoverBrush(_hoverFanSparkline, _hoverFan, _unavailableBrush);
             _taskbarButton.ToolTip = "Framework Control is unavailable at 127.0.0.1:30912";
             return;
         }
 
-        _cpuMetric.Value.Text = _expandedTemperature.Text = snapshot.TemperatureCelsius is double temperature
+        _cpuMetric.Value.Text = _expandedTemperature.Text = _hoverTemperature.Text = snapshot.TemperatureCelsius is double temperature
             ? $"{Math.Round(temperature):0}°"
             : "--°";
         var temperatureBrush = snapshot.TemperatureCelsius is double temp
             ? TemperatureBrush(temp)
             : _unavailableBrush;
         SetMetricBrush(_cpuMetric, _expandedCpuSparkline, _expandedTemperature, temperatureBrush);
+        SetHoverBrush(_hoverCpuSparkline, _hoverTemperature, temperatureBrush);
 
-        _fanMetric.Value.Text = _expandedFan.Text = snapshot.FanPercent is int percent
+        _fanMetric.Value.Text = _expandedFan.Text = _hoverFan.Text = snapshot.FanPercent is int percent
             ? $"{percent}%"
             : snapshot.FanRpm is int rpm ? $"{rpm} rpm" : "--";
         var fanBrush = snapshot.FanPercent is int fanPercent
             ? FanBrush(fanPercent)
             : snapshot.FanRpm is not null ? _coolBrush : _unavailableBrush;
         SetMetricBrush(_fanMetric, _expandedFanSparkline, _expandedFan, fanBrush);
+        SetHoverBrush(_hoverFanSparkline, _hoverFan, fanBrush);
 
         var fanDetail = snapshot.FanPercent is int fanDuty && snapshot.FanRpm is int fanRpm
             ? $"{fanRpm:N0} RPM · {fanDuty}% duty"
@@ -298,6 +345,13 @@ internal sealed class ThermalTaskbarModule : ITaskbarModule
         expandedValue.Foreground = brush;
         expandedSparkline.LineBrush = brush;
         expandedSparkline.InvalidateVisual();
+    }
+
+    private static void SetHoverBrush(Sparkline sparkline, TextBlock value, Brush brush)
+    {
+        value.Foreground = brush;
+        sparkline.LineBrush = brush;
+        sparkline.InvalidateVisual();
     }
 
     private Brush TemperatureBrush(double temperature) => temperature switch

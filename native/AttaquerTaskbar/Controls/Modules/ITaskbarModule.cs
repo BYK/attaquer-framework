@@ -21,3 +21,12 @@ internal interface ITaskbarModule
 
     void ApplyTheme(Brush foreground);
 }
+
+internal interface ITaskbarHoverModule
+{
+    FrameworkElement HoverView { get; }
+
+    event EventHandler? HoverRequested;
+
+    event EventHandler? HoverDismissed;
+}
