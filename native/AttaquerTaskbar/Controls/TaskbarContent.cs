@@ -27,6 +27,7 @@ public sealed class TaskbarContent : UserControl
     private readonly Popup _hoverPopup;
     private readonly Border _hoverBorder;
     private readonly DispatcherTimer _hoverTimer;
+    private readonly DispatcherTimer _hoverCloseTimer;
     private readonly Border _thermalFlyoutSection;
     private readonly Border _mediaFlyoutSection;
     private readonly SettingsPanel _settingsPanel;
@@ -135,19 +136,23 @@ public sealed class TaskbarContent : UserControl
             },
             Child = _thermalModule.HoverView
         };
+        _hoverBorder.MouseEnter += OnHoverSurfaceEntered;
+        _hoverBorder.MouseLeave += OnHoverSurfaceLeft;
+        _hoverBorder.PreviewMouseLeftButtonUp += OnHoverSurfaceClicked;
         _hoverPopup = new Popup
         {
             PlacementTarget = _thermalModule.TaskbarView,
             Placement = PlacementMode.Top,
             VerticalOffset = -4,
-            StaysOpen = false,
+            StaysOpen = true,
             AllowsTransparency = true,
             PopupAnimation = PopupAnimation.Fade,
-            IsHitTestVisible = false,
             Child = _hoverBorder
         };
         _hoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _hoverTimer.Tick += OnHoverTimerTick;
+        _hoverCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _hoverCloseTimer.Tick += OnHoverCloseTimerTick;
 
         var contextMenu = new ContextMenu();
         contextMenu.Opened += OnContextMenuOpened;
@@ -191,6 +196,7 @@ public sealed class TaskbarContent : UserControl
         _flyout.IsOpen = false;
         _hoverPopup.IsOpen = false;
         _hoverTimer.Stop();
+        _hoverCloseTimer.Stop();
         foreach (var module in _modules) module.Stop();
         _settings.Changed -= OnSettingsChanged;
         SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
@@ -265,11 +271,29 @@ public sealed class TaskbarContent : UserControl
     private void OnThermalHoverRequested(object? sender, EventArgs e)
     {
         if (_flyout.IsOpen) return;
+        _hoverCloseTimer.Stop();
+        if (_hoverPopup.IsOpen) return;
         _hoverTimer.Stop();
         _hoverTimer.Start();
     }
 
-    private void OnThermalHoverDismissed(object? sender, EventArgs e) => DismissHover();
+    private void OnThermalHoverDismissed(object? sender, EventArgs e)
+    {
+        _hoverTimer.Stop();
+        ScheduleHoverDismiss();
+    }
+
+    private void OnHoverSurfaceEntered(object sender, System.Windows.Input.MouseEventArgs e) =>
+        _hoverCloseTimer.Stop();
+
+    private void OnHoverSurfaceLeft(object sender, System.Windows.Input.MouseEventArgs e) =>
+        ScheduleHoverDismiss();
+
+    private void OnHoverSurfaceClicked(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        DismissHover();
+        OpenFlyout(showSettings: false);
+    }
 
     private void OnHoverTimerTick(object? sender, EventArgs e)
     {
@@ -279,9 +303,23 @@ public sealed class TaskbarContent : UserControl
         _hoverPopup.IsOpen = true;
     }
 
+    private void ScheduleHoverDismiss()
+    {
+        _hoverCloseTimer.Stop();
+        _hoverCloseTimer.Start();
+    }
+
+    private void OnHoverCloseTimerTick(object? sender, EventArgs e)
+    {
+        _hoverCloseTimer.Stop();
+        if (_thermalModule.TaskbarView.IsMouseOver || _hoverBorder.IsMouseOver) return;
+        _hoverPopup.IsOpen = false;
+    }
+
     private void DismissHover()
     {
         _hoverTimer.Stop();
+        _hoverCloseTimer.Stop();
         _hoverPopup.IsOpen = false;
     }
 
