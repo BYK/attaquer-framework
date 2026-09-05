@@ -10,8 +10,10 @@ internal sealed class SettingsPanel : StackPanel
     private readonly SettingsService _settings;
     private readonly ComboBox _labelMode;
     private readonly ComboBox _valueMode;
+    private readonly CheckBox _showWorkspaces;
     private readonly CheckBox _showThermal;
     private readonly CheckBox _showMedia;
+    private readonly CheckBox _autoTile;
     private readonly CheckBox _runAtStartup;
     private bool _refreshing;
 
@@ -66,6 +68,11 @@ internal sealed class SettingsPanel : StackPanel
         modulesTitle.Margin = new Thickness(0, 10, 0, 4);
         Children.Add(modulesTitle);
 
+        _showWorkspaces = new CheckBox { Content = "Workspaces", Margin = new Thickness(0, 3, 0, 3) };
+        _showWorkspaces.Checked += (_, _) => SetModuleVisibility(workspaces: true);
+        _showWorkspaces.Unchecked += (_, _) => SetModuleVisibility(workspaces: false);
+        Children.Add(_showWorkspaces);
+
         _showThermal = new CheckBox { Content = "Thermal", Margin = new Thickness(0, 3, 0, 3) };
         _showThermal.Checked += (_, _) => SetModuleVisibility(thermal: true);
         _showThermal.Unchecked += (_, _) => SetModuleVisibility(thermal: false);
@@ -76,13 +83,36 @@ internal sealed class SettingsPanel : StackPanel
         _showMedia.Unchecked += (_, _) => SetModuleVisibility(media: false);
         Children.Add(_showMedia);
 
+        var glazeWmTitle = TaskbarUi.Text("GlazeWM", 11);
+        glazeWmTitle.FontWeight = FontWeights.SemiBold;
+        glazeWmTitle.Margin = new Thickness(0, 10, 0, 4);
+        Children.Add(glazeWmTitle);
+
+        _autoTile = new CheckBox
+        {
+            Content = "Automatic tiling direction",
+            Margin = new Thickness(0, 3, 0, 3)
+        };
+        _autoTile.Checked += (_, _) => SetAutoTile(true);
+        _autoTile.Unchecked += (_, _) => SetAutoTile(false);
+        Children.Add(_autoTile);
+
+        var autoTileDetail = TaskbarUi.Text(
+            "Uses horizontal insertion for wide focused windows and vertical insertion for tall ones.",
+            9,
+            trim: false);
+        autoTileDetail.TextWrapping = TextWrapping.Wrap;
+        autoTileDetail.Opacity = 0.58;
+        autoTileDetail.Margin = new Thickness(20, 0, 0, 3);
+        Children.Add(autoTileDetail);
+
         _runAtStartup = new CheckBox { Content = "Run at startup", Margin = new Thickness(0, 9, 0, 0) };
         _runAtStartup.Checked += (_, _) => SetStartup(true);
         _runAtStartup.Unchecked += (_, _) => SetStartup(false);
         Children.Add(_runAtStartup);
 
         var note = TaskbarUi.Text(
-            "Thermal and Media use the same internal module contract, so more built-ins can be added without changing the taskbar host.",
+            "Workspaces, Thermal and Media share the same internal module contract, so more built-ins can be added without changing the taskbar host.",
             10,
             trim: false);
         note.TextWrapping = TextWrapping.Wrap;
@@ -99,8 +129,10 @@ internal sealed class SettingsPanel : StackPanel
         {
             _labelMode.SelectedValue = _settings.Current.MetricLabels;
             _valueMode.SelectedValue = _settings.Current.MetricValues;
+            _showWorkspaces.IsChecked = _settings.Current.ShowWorkspaces;
             _showThermal.IsChecked = _settings.Current.ShowThermal;
             _showMedia.IsChecked = _settings.Current.ShowMedia;
+            _autoTile.IsChecked = _settings.Current.AutoTileEnabled;
             _runAtStartup.IsChecked = StartupService.IsEnabled();
         }
         finally
@@ -109,14 +141,21 @@ internal sealed class SettingsPanel : StackPanel
         }
     }
 
-    private void SetModuleVisibility(bool? thermal = null, bool? media = null)
+    private void SetModuleVisibility(bool? workspaces = null, bool? thermal = null, bool? media = null)
     {
         if (_refreshing) return;
         _settings.Update(settings =>
         {
+            if (workspaces is not null) settings.ShowWorkspaces = workspaces.Value;
             if (thermal is not null) settings.ShowThermal = thermal.Value;
             if (media is not null) settings.ShowMedia = media.Value;
         });
+    }
+
+    private void SetAutoTile(bool enabled)
+    {
+        if (_refreshing) return;
+        _settings.Update(settings => settings.AutoTileEnabled = enabled);
     }
 
     private void SetStartup(bool enabled)

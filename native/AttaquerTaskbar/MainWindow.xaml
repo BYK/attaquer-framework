@@ -5,7 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="clr-namespace:AttaquerTaskbar.Controls"
     Title="Attaquer Taskbar"
-    Width="500"
+    Width="620"
     Height="48"
     AllowsTransparency="True"
     Background="Transparent"

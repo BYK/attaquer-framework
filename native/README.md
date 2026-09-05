@@ -2,10 +2,12 @@
 
 A native Windows 11 taskbar companion for Framework laptops. It combines:
 
+- a native GlazeWM workspace switcher
 - CPU temperature and calibrated fan duty from Framework Control
 - system-wide now-playing metadata and previous/play/next controls
 - automatic adaptation to both the standard and new compact taskbar layouts
-- an expanded media/thermal flyout with timeline seeking and persistent settings
+- an expanded workspace/media/thermal flyout with timeline seeking and persistent settings
+- optional automatic GlazeWM insertion direction for wide and tall windows
 
 It keeps the Microsoft taskbar and hosts a WPF surface inside it using
 [Deskband11Lib](https://github.com/airtaxi/Deskband11Lib). The media integration
@@ -18,9 +20,22 @@ is derived from [BarPlay](https://github.com/airtaxi/BarPlay).
   on its default local port `30912`
 - fan calibration completed in Framework Control if you want percentage rather
   than raw RPM
+- [GlazeWM](https://github.com/glzr-io/glazewm) with IPC enabled if you want the
+  workspace switcher or automatic tiling direction
 
 Unlike the Zebar widget, this native process calls Framework Control directly,
 so no CORS allow-list entry is required.
+
+For the GlazeWM features, enable IPC in `%USERPROFILE%\.glzr\glazewm\config.yaml`:
+
+```yaml
+ipc:
+  enabled: true
+```
+
+Attaquer Taskbar connects only to GlazeWM's local default endpoint at
+`ws://127.0.0.1:6123`. It reconnects automatically when GlazeWM starts or
+reloads.
 
 ## Install a CI build
 
@@ -38,8 +53,8 @@ Deskband11Lib clamps the host to the taskbar's actual height. The control then
 switches layout at 40 DIPs:
 
 - standard taskbar: 32-DIP artwork and two metadata lines
-- compact taskbar: 24-DIP artwork, one metadata line, 24-DIP controls and tighter
-  margins
+- compact taskbar: 22-DIP workspace buttons, 24-DIP artwork and controls, one
+  metadata line, and tighter margins
 - narrow horizontal space: previous/next collapse before the play/pause button
 
 This avoids BarPlay's fixed 36-DIP artwork plus outer margin overflowing a
@@ -50,27 +65,46 @@ and thermometer icons on the compact taskbar and `CPU` / `FAN` text on the
 standard taskbar. The flyout settings can force either style and can replace
 the current values with two-minute sparklines.
 
+## Workspaces and automatic tiling
+
+The workspace buttons use each GlazeWM workspace's `display_name` when set,
+otherwise its `name`. The focused workspace is highlighted; clicking another
+button focuses it through GlazeWM IPC. If IPC is unavailable, a small `WM`
+button opens setup details without affecting the thermal or media modules.
+
+Automatic tiling direction is enabled by default and can be toggled in
+Settings. After relevant GlazeWM events, it debounces for 180 ms, finds the
+focused tiled window, and sets the insertion direction to horizontal when the
+window is wider than tall and vertical otherwise. Commands are cached per
+window to avoid repeating the same direction.
+
+This behavior is an independent implementation inspired by the user-visible
+behavior of
+[GlazeWM_AutoTile](https://github.com/aka-phrankie/GlazeWM_AutoTile). No source
+code from that unlicensed repository is included.
+
 ## Modules and settings
 
 Hover over the thermal strip for a compact two-graph preview. Click the thermal
-strip, artwork or media title to open the complete flyout. It contains current
-thermal values and history, larger now-playing artwork, timeline seeking, media
-controls, and a settings button. Settings open as a separate flyout page so the
-panel stays compact without a nested scrollbar.
+strip, artwork or media title to open the complete flyout. It contains
+workspaces and GlazeWM status, current thermal values and history, larger
+now-playing artwork, timeline seeking, media controls, and a settings button.
+Settings open as a separate flyout page so the panel stays compact without a
+nested scrollbar.
 
 The compact and expanded views are provided by built-in `ITaskbarModule`
-implementations. Thermal and Media are the first two modules; additional
-built-ins can implement the same lifecycle, layout and theme contract without
-changing the host. External DLL discovery is intentionally not enabled yet so
-the plugin API can evolve without loading untrusted code into the taskbar
-process.
+implementations. Workspaces, Thermal and Media use the same lifecycle, layout
+and theme contract. Additional built-ins can implement it without changing the
+host. External DLL discovery is intentionally not enabled yet so the plugin API
+can evolve without loading untrusted code into the taskbar process.
 
 Settings are saved to
 `%LOCALAPPDATA%\AttaquerTaskbar\settings.json` and currently include:
 
 - automatic, icon, or text metric labels
 - numeric values or compact sparklines
-- Thermal and Media module visibility
+- Workspaces, Thermal and Media module visibility
+- automatic GlazeWM tiling direction
 - run at startup
 
 ## Build
@@ -89,6 +123,7 @@ limited-access feature activation is unavailable.
 
 ## Controls
 
+- Click a workspace button to focus that GlazeWM workspace.
 - Click the CPU/fan values, artwork or media title to open the expanded flyout.
 - Use the inline previous, play/pause and next buttons for the current Windows
   media session.
@@ -119,6 +154,8 @@ Get-Content "$env:LOCALAPPDATA\AttaquerTaskbar\attaquer-taskbar.log" -Tail 100
   WinUI build. Install the current WPF-based MSIX artifact with `install.cmd`.
 - A final `Waiting for Deskband11Lib...` line with no later message means the
   process cannot measure or attach to this Windows taskbar layout.
+- `GlazeWM IPC connection unavailable` does not prevent startup; it means the
+  workspace switcher is waiting for GlazeWM or for `ipc.enabled: true`.
 - A `WPF launch failed` or `Unhandled ... exception` line contains the startup
   failure and stack trace. Include those lines plus the Windows build from
   `winver` in a bug report.

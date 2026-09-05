@@ -21,6 +21,7 @@ internal sealed class MediaTaskbarModule : ITaskbarModule
     private readonly TextBlock _title;
     private readonly TextBlock _description;
     private readonly TextBlock _compactMetadata;
+    private readonly Button _metadataButton;
     private readonly Button _previousButton;
     private readonly TextBlock _previousIcon;
     private readonly Button _playPauseButton;
@@ -65,11 +66,11 @@ internal sealed class MediaTaskbarModule : ITaskbarModule
         var metadataGrid = new Grid { MinWidth = 20 };
         metadataGrid.Children.Add(_normalMetadata);
         metadataGrid.Children.Add(_compactMetadata);
-        var metadataButton = TaskbarUi.TransparentButton();
-        metadataButton.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-        metadataButton.HorizontalAlignment = HorizontalAlignment.Stretch;
-        metadataButton.Cursor = Cursors.Hand;
-        metadataButton.Content = metadataGrid;
+        _metadataButton = TaskbarUi.TransparentButton();
+        _metadataButton.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        _metadataButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _metadataButton.Cursor = Cursors.Hand;
+        _metadataButton.Content = metadataGrid;
 
         _previousIcon = TaskbarUi.Symbol("\uE892", 15);
         _previousButton = TaskbarUi.InlineButton(_previousIcon, "Previous", OnPreviousClick);
@@ -91,7 +92,7 @@ internal sealed class MediaTaskbarModule : ITaskbarModule
         _taskbarArtworkHost.Cursor = Cursors.Hand;
         _taskbarRoot.PreviewMouseLeftButtonUp += OnTaskbarRootReleased;
         TaskbarUi.AddToColumn(_taskbarRoot, _taskbarArtworkHost, 0);
-        TaskbarUi.AddToColumn(_taskbarRoot, metadataButton, 1);
+        TaskbarUi.AddToColumn(_taskbarRoot, _metadataButton, 1);
         TaskbarUi.AddToColumn(_taskbarRoot, transport, 2);
         TaskbarView = _taskbarRoot;
 
@@ -203,7 +204,7 @@ internal sealed class MediaTaskbarModule : ITaskbarModule
         TextElement.SetForeground(_taskbarRoot, foreground);
         foreach (var button in new[]
                  {
-                     _previousButton, _playPauseButton, _nextButton,
+                     _metadataButton, _previousButton, _playPauseButton, _nextButton,
                      _flyoutPreviousButton, _flyoutPlayPauseButton, _flyoutNextButton
                  })
             button.Foreground = foreground;

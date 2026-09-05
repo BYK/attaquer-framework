@@ -16,11 +16,13 @@ public sealed class TaskbarContent : UserControl
     private const double CompactHeightThreshold = 40;
 
     private readonly SettingsService _settings;
+    private readonly WorkspaceTaskbarModule _workspaceModule;
     private readonly ThermalTaskbarModule _thermalModule;
     private readonly MediaTaskbarModule _mediaModule;
     private readonly ITaskbarModule[] _modules;
     private readonly Grid _layoutRoot;
-    private readonly Border _separator;
+    private readonly Border _workspaceSeparator;
+    private readonly Border _mediaSeparator;
     private readonly Button _emptySettingsButton;
     private readonly Popup _flyout;
     private readonly Border _flyoutBorder;
@@ -28,6 +30,7 @@ public sealed class TaskbarContent : UserControl
     private readonly Border _hoverBorder;
     private readonly DispatcherTimer _hoverTimer;
     private readonly DispatcherTimer _hoverCloseTimer;
+    private readonly Border _workspaceFlyoutSection;
     private readonly Border _thermalFlyoutSection;
     private readonly Border _mediaFlyoutSection;
     private readonly SettingsPanel _settingsPanel;
@@ -40,19 +43,16 @@ public sealed class TaskbarContent : UserControl
     public TaskbarContent()
     {
         _settings = App.Settings;
+        _workspaceModule = new WorkspaceTaskbarModule(App.GlazeWmService);
         _thermalModule = new ThermalTaskbarModule(App.ThermalService, _settings);
         _mediaModule = new MediaTaskbarModule(App.MediaService);
-        _modules = [_thermalModule, _mediaModule];
+        _modules = [_workspaceModule, _thermalModule, _mediaModule];
         foreach (var module in _modules) module.FlyoutRequested += OnFlyoutRequested;
         _thermalModule.HoverRequested += OnThermalHoverRequested;
         _thermalModule.HoverDismissed += OnThermalHoverDismissed;
 
-        _separator = new Border
-        {
-            Width = 1,
-            Margin = new Thickness(4, 7, 4, 7),
-            Background = new SolidColorBrush(Color.FromArgb(0x38, 0x80, 0x80, 0x80))
-        };
+        _workspaceSeparator = CreateSeparator();
+        _mediaSeparator = CreateSeparator();
 
         _emptySettingsButton = TaskbarUi.TransparentButton();
         _emptySettingsButton.Padding = new Thickness(8, 0, 8, 0);
@@ -68,11 +68,15 @@ public sealed class TaskbarContent : UserControl
         };
         _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        TaskbarUi.AddToColumn(_layoutRoot, _thermalModule.TaskbarView, 0);
-        TaskbarUi.AddToColumn(_layoutRoot, _separator, 1);
-        TaskbarUi.AddToColumn(_layoutRoot, _mediaModule.TaskbarView, 2);
-        Grid.SetColumnSpan(_emptySettingsButton, 3);
+        TaskbarUi.AddToColumn(_layoutRoot, _workspaceModule.TaskbarView, 0);
+        TaskbarUi.AddToColumn(_layoutRoot, _workspaceSeparator, 1);
+        TaskbarUi.AddToColumn(_layoutRoot, _thermalModule.TaskbarView, 2);
+        TaskbarUi.AddToColumn(_layoutRoot, _mediaSeparator, 3);
+        TaskbarUi.AddToColumn(_layoutRoot, _mediaModule.TaskbarView, 4);
+        Grid.SetColumnSpan(_emptySettingsButton, 5);
         _layoutRoot.Children.Add(_emptySettingsButton);
 
         _settingsButton = TaskbarUi.InlineButton(
@@ -89,11 +93,17 @@ public sealed class TaskbarContent : UserControl
         Grid.SetColumn(_settingsButton, 1);
         header.Children.Add(_settingsButton);
 
+        _workspaceFlyoutSection = new Border
+        {
+            Margin = new Thickness(0, 8, 0, 0),
+            Child = _workspaceModule.FlyoutView
+        };
         _thermalFlyoutSection = new Border { Child = _thermalModule.FlyoutView };
         _mediaFlyoutSection = new Border { Child = _mediaModule.FlyoutView };
         _settingsPanel = new SettingsPanel(_settings) { Visibility = Visibility.Collapsed };
         var flyoutContent = new StackPanel();
         flyoutContent.Children.Add(header);
+        flyoutContent.Children.Add(_workspaceFlyoutSection);
         flyoutContent.Children.Add(_thermalFlyoutSection);
         flyoutContent.Children.Add(_mediaFlyoutSection);
         flyoutContent.Children.Add(_settingsPanel);
@@ -236,9 +246,13 @@ public sealed class TaskbarContent : UserControl
     private void ApplyLayout(bool compact, double width)
     {
         _layoutRoot.Margin = compact ? new Thickness(2, 0, 2, 0) : new Thickness(4, 0, 4, 0);
-        _separator.Margin = compact
-            ? new Thickness(2, 5, 2, 5)
-            : new Thickness(4, 7, 4, 7);
+        foreach (var separator in new[] { _workspaceSeparator, _mediaSeparator })
+        {
+            separator.Margin = compact
+                ? new Thickness(2, 5, 2, 5)
+                : new Thickness(4, 7, 4, 7);
+        }
+
         foreach (var module in _modules) module.ApplyLayout(compact, width);
     }
 
@@ -246,12 +260,16 @@ public sealed class TaskbarContent : UserControl
 
     private void ApplyVisibility(TaskbarSettings settings)
     {
+        _workspaceModule.TaskbarView.Visibility = settings.ShowWorkspaces ? Visibility.Visible : Visibility.Collapsed;
         _thermalModule.TaskbarView.Visibility = settings.ShowThermal ? Visibility.Visible : Visibility.Collapsed;
         _mediaModule.TaskbarView.Visibility = settings.ShowMedia ? Visibility.Visible : Visibility.Collapsed;
-        _separator.Visibility = settings.ShowThermal && settings.ShowMedia
+        _workspaceSeparator.Visibility = settings.ShowWorkspaces && (settings.ShowThermal || settings.ShowMedia)
             ? Visibility.Visible
             : Visibility.Collapsed;
-        _emptySettingsButton.Visibility = !settings.ShowThermal && !settings.ShowMedia
+        _mediaSeparator.Visibility = settings.ShowThermal && settings.ShowMedia
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        _emptySettingsButton.Visibility = !settings.ShowWorkspaces && !settings.ShowThermal && !settings.ShowMedia
             ? Visibility.Visible
             : Visibility.Collapsed;
         ApplyFlyoutPage();
@@ -260,6 +278,9 @@ public sealed class TaskbarContent : UserControl
     private void ApplyFlyoutPage()
     {
         _settingsPanel.Visibility = _showingSettings ? Visibility.Visible : Visibility.Collapsed;
+        _workspaceFlyoutSection.Visibility = !_showingSettings && _settings.Current.ShowWorkspaces
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         _thermalFlyoutSection.Visibility = !_showingSettings && _settings.Current.ShowThermal
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -349,6 +370,13 @@ public sealed class TaskbarContent : UserControl
 
     private void OnRunAtStartupClick(object sender, RoutedEventArgs e) =>
         _runAtStartupMenuItem.IsChecked = StartupService.SetEnabled(_runAtStartupMenuItem.IsChecked);
+
+    private static Border CreateSeparator() => new()
+    {
+        Width = 1,
+        Margin = new Thickness(4, 7, 4, 7),
+        Background = new SolidColorBrush(Color.FromArgb(0x38, 0x80, 0x80, 0x80))
+    };
 
     private static SolidColorBrush Brush(byte red, byte green, byte blue) =>
         new(Color.FromRgb(red, green, blue));

@@ -19,14 +19,14 @@ public partial class MainWindow : Window
 
         TaskbarContentHost = new TaskbarContentHost(this, (FrameworkElement)Content, new()
         {
-            PreferredWidth = 500,
+            PreferredWidth = 620,
             PreferredHeight = 48,
             Placement = TaskbarContentPlacement.Auto,
             AllowFixedSlotResize = true,
             AnimateLayoutChanges = false,
             LayoutRefreshInterval = TimeSpan.FromMilliseconds(250)
         });
-        DiagnosticLog.Write("Deskband11Lib.Wpf host created (500 x 48 preferred DIPs, automatic placement).");
+        DiagnosticLog.Write("Deskband11Lib.Wpf host created (620 x 48 preferred DIPs, automatic placement).");
     }
 
     public Task PrepareTaskbarContentAsync() => TaskbarContentHost.AttachWhenLayoutReadyAsync();

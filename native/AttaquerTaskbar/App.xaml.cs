@@ -13,6 +13,7 @@ public partial class App : Application
 
     public static SystemMediaTransportService MediaService { get; private set; } = null!;
     public static FrameworkControlService ThermalService { get; private set; } = null!;
+    public static GlazeWmService GlazeWmService { get; private set; } = null!;
     public static SettingsService Settings { get; private set; } = null!;
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -45,8 +46,10 @@ public partial class App : Application
             Settings = new SettingsService();
             MediaService = new SystemMediaTransportService(Dispatcher);
             ThermalService = new FrameworkControlService(Dispatcher);
+            GlazeWmService = new GlazeWmService(Dispatcher, Settings);
             ThermalService.Start();
-            DiagnosticLog.Write("Framework Control service started; media initialization deferred.");
+            GlazeWmService.Start();
+            DiagnosticLog.Write("Framework Control and GlazeWM services started; media initialization deferred.");
 
             await Task.Delay(750);
             await InitializeMainWindowAsync();
@@ -64,6 +67,7 @@ public partial class App : Application
     {
         MediaService?.Dispose();
         ThermalService?.Dispose();
+        GlazeWmService?.Dispose();
         if (_ownsSingleInstanceMutex) _singleInstanceMutex?.ReleaseMutex();
         _singleInstanceMutex?.Dispose();
         base.OnExit(e);

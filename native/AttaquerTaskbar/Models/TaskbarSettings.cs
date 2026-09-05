@@ -19,7 +19,11 @@ public sealed class TaskbarSettings
 
     public MetricValueMode MetricValues { get; set; } = MetricValueMode.Numbers;
 
+    public bool ShowWorkspaces { get; set; } = true;
+
     public bool ShowThermal { get; set; } = true;
 
     public bool ShowMedia { get; set; } = true;
+
+    public bool AutoTileEnabled { get; set; } = true;
 }
