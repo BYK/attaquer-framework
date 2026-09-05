@@ -228,7 +228,7 @@ public sealed class TaskbarContent : UserControl
         var light = key?.GetValue("SystemUsesLightTheme") is int value && value != 0;
         var foreground = light ? Brush(0x20, 0x20, 0x20) : Brushes.White;
         Foreground = foreground;
-        _flyoutBorder.Foreground = foreground;
+        TextElement.SetForeground(_flyoutBorder, foreground);
         _flyoutBorder.Background = light ? Brush(0xF7, 0xF7, 0xF7) : Brush(0x24, 0x24, 0x24);
         _flyoutBorder.BorderBrush = light ? Brush(0xD0, 0xD0, 0xD0) : Brush(0x4A, 0x4A, 0x4A);
         _emptySettingsButton.Foreground = foreground;

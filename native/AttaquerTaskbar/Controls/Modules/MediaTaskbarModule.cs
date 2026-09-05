@@ -199,7 +199,7 @@ internal sealed class MediaTaskbarModule : ITaskbarModule
 
     public void ApplyTheme(Brush foreground)
     {
-        _taskbarRoot.Foreground = foreground;
+        TextElement.SetForeground(_taskbarRoot, foreground);
         foreach (var button in new[]
                  {
                      _previousButton, _playPauseButton, _nextButton,
