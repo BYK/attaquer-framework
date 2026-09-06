@@ -26,6 +26,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Test auto-tiling policy
+        run: dotnet run --project native/AttaquerTaskbar.PolicyTests/AttaquerTaskbar.PolicyTests.csproj -c Release
+
       - name: Create test signing certificate
         shell: pwsh
         run: |

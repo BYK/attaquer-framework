@@ -73,15 +73,23 @@ button focuses it through GlazeWM IPC. If IPC is unavailable, a small `WM`
 button opens setup details without affecting the thermal or media modules.
 
 Automatic tiling direction is enabled by default and can be toggled in
-Settings. After relevant GlazeWM events, it debounces for 180 ms, finds the
-focused tiled window, and sets the insertion direction to horizontal when the
-window is wider than tall and vertical otherwise. Commands are cached per
-window to avoid repeating the same direction.
+Settings. Focus, movement, workspace activation and window-management events
+are evaluated immediately from their GlazeWM payloads. Resize-driven workspace
+updates settle for 160 ms before evaluation.
 
-This behavior is an independent implementation inspired by the user-visible
-behavior of
-[GlazeWM_AutoTile](https://github.com/aka-phrankie/GlazeWM_AutoTile). No source
-code from that unlicensed repository is included.
+Wide windows select horizontal insertion and tall windows select vertical
+insertion. A 10% aspect-ratio deadband preserves the current direction for
+near-square windows, avoiding direction chatter while resizing. Workspace-list
+refreshes remain separately debounced and do not delay tiling commands. All
+queries, commands and events share one multiplexed IPC connection, with
+exponential reconnect backoff.
+
+The policy is our own implementation informed by the observable behavior of
+[GlazeWM_AutoTile](https://github.com/aka-phrankie/GlazeWM_AutoTile) and the
+reliability ideas demonstrated by
+[GlazeTiler](https://github.com/Dutch-Raptor/glazetiler). No source from either
+project is incorporated; GlazeTiler is GPL-3.0-only and GlazeWM_AutoTile
+publishes no license.
 
 ## Modules and settings
 
