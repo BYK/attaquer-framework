@@ -26,6 +26,7 @@ public sealed class TaskbarContent : UserControl
     private readonly Button _emptySettingsButton;
     private readonly Popup _flyout;
     private readonly Border _flyoutBorder;
+    private readonly OutsideClickWatcher _outsideClickWatcher;
     private readonly Popup _hoverPopup;
     private readonly Border _hoverBorder;
     private readonly DispatcherTimer _hoverTimer;
@@ -131,6 +132,11 @@ public sealed class TaskbarContent : UserControl
             PopupAnimation = PopupAnimation.Fade,
             Child = _flyoutBorder
         };
+        _outsideClickWatcher = new OutsideClickWatcher(
+            Dispatcher,
+            () => _flyout.IsOpen = false);
+        _flyout.Opened += (_, _) => _outsideClickWatcher.Start();
+        _flyout.Closed += (_, _) => _outsideClickWatcher.Stop();
 
         _hoverBorder = new Border
         {
@@ -204,6 +210,7 @@ public sealed class TaskbarContent : UserControl
         if (!_loaded) return;
         _loaded = false;
         _flyout.IsOpen = false;
+        _outsideClickWatcher.Stop();
         _hoverPopup.IsOpen = false;
         _hoverTimer.Stop();
         _hoverCloseTimer.Stop();
